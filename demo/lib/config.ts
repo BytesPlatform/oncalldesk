@@ -116,7 +116,7 @@ export const TRIAGE_RULES: TriageRule[] = [
   {
     urgency: "emergency",
     reason: "no heat",
-    keywords: ["no heat", "furnace is dead", "furnace died", "heat is out", "heater not working", "no hot air", "freezing", "house is cold", "boiler is out"],
+    keywords: ["no heat", "no heating", "heating is down", "heat is down", "furnace is dead", "furnace died", "heat is out", "heater not working", "no hot air", "freezing", "house is cold", "boiler is out"],
     dispatchTonight: true,
   },
   {
@@ -124,6 +124,12 @@ export const TRIAGE_RULES: TriageRule[] = [
     reason: "water coming from the system",
     keywords: ["water leak", "leaking water", "flooding", "water everywhere"],
     dispatchTonight: true,
+  },
+  {
+    urgency: "urgent",
+    reason: "a system that is not running",
+    keywords: ["system is down", "system's down", "hvac is down", "is down", "not working", "isn't working", "stopped working", "won't turn on", "not turning on", "won't start", "not running", "quit on me", "died on me"],
+    dispatchTonight: false,
   },
   {
     urgency: "urgent",

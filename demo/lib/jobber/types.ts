@@ -115,4 +115,12 @@ export interface JobberGateway {
 
   /** Drives the dispatch board. */
   listVisits(args: { fromDate: Date; days: number }): Promise<ScheduledVisit[]>;
+
+  /** A browser call has no caller id, so a returning caller is matched on what they say. */
+  findClientByName(args: { firstName: string; lastName?: string; street?: string }): Promise<JobberClient | null>;
+
+  /** The caller's next scheduled visit, for "am I booked?" and "cancel that". */
+  findNextVisit(clientId: string): Promise<(ScheduledVisit & { jobTypeId: string }) | null>;
+
+  cancelVisit(visitId: string): Promise<void>;
 }

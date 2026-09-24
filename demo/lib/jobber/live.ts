@@ -25,7 +25,7 @@ import {
   TECHNICIANS,
   jobTypeById,
 } from "../config";
-import { decodeSlot, encodeSlot, speakWindow } from "./mock";
+import { MockJobber, decodeSlot, encodeSlot, speakWindow } from "./mock";
 import type {
   CreateJobInput,
   CreateJobResult,
@@ -434,6 +434,26 @@ export class LiveJobber implements JobberGateway {
       { clientId: args.clientId, input: { message: args.message } },
     );
     assertNoUserErrors("clientCreateNote", data.clientCreateNote.userErrors);
+  }
+
+  /**
+   * Jobber has no "find by spoken name" or "next visit for this client" that
+   * a phone call can use safely, so these three read the demo tables that
+   * mirror every write. The production build swaps them for the GraphQL
+   * client and visit queries once the firm's account is connected.
+   */
+  private mirror = new MockJobber();
+
+  async findClientByName(args: { firstName: string; lastName?: string; street?: string }) {
+    return this.mirror.findClientByName(args);
+  }
+
+  async findNextVisit(clientId: string) {
+    return this.mirror.findNextVisit(clientId);
+  }
+
+  async cancelVisit(visitId: string): Promise<void> {
+    await this.mirror.cancelVisit(visitId);
   }
 
   async listVisits(args: { fromDate: Date; days: number }): Promise<ScheduledVisit[]> {

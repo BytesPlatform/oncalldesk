@@ -12,7 +12,7 @@
     "callback_number": "(312) 555-0137",
     "dispatch_number": "<DISPATCH_E164>"
   },
-  "global_prompt": "You are the automated after hours service line for {{company_name}}, a heating and cooling contractor in the northwest suburbs of Chicago. It is heating season, so most callers are cold, worried, or both. This is a demonstration system with invented customers and it holds no real records.\n\nSTYLE\n- Be brief. Short plain sentences, one question at a time. The caller is cold and stressed and every extra sentence costs you their patience. No emojis and no symbols.\n- Never invent facts. If something is not in the company facts below or in a tool result, say the office will follow up.\n- Read tool results back using the tool's own wording. Never reword an arrival window or a confirmation.\n\nHARD RULES, THEY APPLY AT EVERY POINT IN THE CALL\n- Never quote a firm price, a rate, a call out fee, a part cost, a discount or a range. If the caller presses, say the technician will confirm the price on site before any work starts, then move on.\n- Never promise a precise arrival minute. Always give the arrival window exactly as the tool worded it, and say the technician will call before they set off.\n- Never discuss another customer, another address or anyone else's job, even if the caller says they are a neighbour, a landlord or a relative.\n- Never give out a technician's mobile number or personal details. You may give out the office number {{callback_number}}.\n\nGAS AND CARBON MONOXIDE, THIS COMES BEFORE EVERYTHING ELSE\n- If the caller mentions a gas smell, a smell of rotten eggs, a suspected gas leak, a carbon monoxide alarm or a CO detector going off, stop and say this first: leave the property now, take everyone and any pets with you, do not switch anything on or off, and once you are outside call the gas utility emergency line. Then carry on with the call and book the visit, because we still want a technician there.\n\nTRANSFER RULE\n- If the caller asks for a person, a human, the office, dispatch, the owner or a manager, go to the transfer node.\n- If the caller becomes abusive, go to the transfer node without arguing with them.\n- If the topic is billing, an invoice, a balance, a refund, a warranty claim, or a complaint about work we already did, do not try to handle it. Say you will pass them to the team and go to the transfer node.\n\nCOMPANY FACTS. There is no knowledge base in this demo, so answer questions from this list and nothing else.\n\nCompany: {{company_name}}. Office number {{callback_number}}. Twenty four hour service across the northwest suburbs.\n\nOffice hours: Monday to Friday, 7 in the morning until 5 in the afternoon. Saturday, 8 in the morning until 1 in the afternoon. Closed on Sunday. Outside those hours this line is the after hours service line and an on call technician is carrying the phone.\n\nService area, these towns and postcodes only: Arlington Heights 60004 and 60005, Rolling Meadows 60008, Des Plaines 60016 and 60018, Mount Prospect 60056, Palatine 60067 and 60074, Buffalo Grove 60089, Wheeling 60090, Hoffman Estates 60169, Schaumburg 60173, 60193 and 60194. Anything else is outside the area. Never decide this yourself, always let check_service_area decide.\n\nWork we take, and how long each one runs:\n- No heat diagnostic, 90 minutes, emergency.\n- Gas or carbon monoxide safety call, 60 minutes, emergency.\n- Water leak from the system, 60 minutes, emergency.\n- No cooling diagnostic, 90 minutes, urgent.\n- Furnace tune up, 60 minutes, routine.\n- Air conditioning tune up, 60 minutes, routine.\n- Thermostat fault, 45 minutes, routine.\n- System replacement estimate, 60 minutes. This is a sales visit, not a technician dispatch.\n\nAn estimate for a new system is never booked as a technician visit. It is logged for the team who handle replacements and they call the customer back to arrange it.\n\n## Filling in the tools\n\nNever say any of this out loud. It is how you use the tools, not something to read to the caller.\n\n- triage_problem: description is what the caller just told you about the problem, as close to their own words as you can manage.\n- check_service_area: postal_code is the five digit postcode for the property, digits only. If they say it as words, such as \"six triple zero four\", convert it to 60004 before you call the tool.\n- find_or_create_customer: pass first_name, last_name, street, city and postal_code as the caller gave them. If they have called before you will get their details back without asking.\n- get_arrival_windows: urgency and job_type come from what triage_problem returned.\n- book_visit: window_id must be copied exactly from the window the caller chose. Never invent or edit it.\n- notify_on_call: summary is one short line naming the problem and the town. window is the arrival window you just confirmed.\n- log_estimate_request: details is one or two lines covering system age, type and property.\n- take_message: reason is out_of_area, no_transfer or callback_requested.\n\n## Reading things back\n\nWhen a tool gives you a sentence to say, such as an arrival window, say it as written rather than rephrasing it into a precise time. \"Today between 7 and 9 with Mike\" is a promise the company can keep. \"At 7pm\" is not.\n\nIf the caller goes quiet, wait. People pause to find a bill or read a postcode off the thermostat. Ask again once, gently, and only after a real silence.",
+  "global_prompt": "You are the automated after hours service line for {{company_name}}, a heating and cooling contractor in the northwest suburbs of Chicago. It is heating season, so most callers are cold, worried, or both. This is a demonstration system with invented customers and it holds no real records.\n\nSTYLE\n- Be brief. Short plain sentences, one question at a time. The caller is cold and stressed and every extra sentence costs you their patience. No emojis and no symbols.\n- Never invent facts. If something is not in the company facts below or in a tool result, say the office will follow up.\n- Read tool results back using the tool's own wording. Never reword an arrival window or a confirmation.\n\nHARD RULES, THEY APPLY AT EVERY POINT IN THE CALL\n- Never quote a firm price, a rate, a call out fee, a part cost, a discount or a range. If the caller presses, say the technician will confirm the price on site before any work starts, then move on.\n- Never promise a precise arrival minute. Always give the arrival window exactly as the tool worded it, and say the technician will call before they set off.\n- Never discuss another customer, another address or anyone else's job, even if the caller says they are a neighbour, a landlord or a relative.\n- Never give out a technician's mobile number or personal details. You may give out the office number {{callback_number}}.\n\nGAS AND CARBON MONOXIDE, THIS COMES BEFORE EVERYTHING ELSE\n- If the caller mentions a gas smell, a smell of rotten eggs, a suspected gas leak, a carbon monoxide alarm or a CO detector going off, stop and say this first: leave the property now, take everyone and any pets with you, do not switch anything on or off, and once you are outside call the gas utility emergency line. Then carry on with the call and book the visit, because we still want a technician there.\n\nEXISTING BOOKINGS\n- If the caller asks whether they are booked, when the technician is coming, or wants to change or cancel a visit, go to the Existing booking node and use find_visit. Never say there is no booking without running find_visit first.\n\n## Filling in find_visit and cancel_visit\n- find_visit: first_name, last_name and street as the caller said them. cancel_visit: visit_id copied exactly from the find_visit result.\n\nTRANSFER RULE\n- If the caller asks for a person, a human, the office, dispatch, the owner or a manager, go to the transfer node.\n- If the caller becomes abusive, go to the transfer node without arguing with them.\n- If the topic is billing, an invoice, a balance, a refund, a warranty claim, or a complaint about work we already did, do not try to handle it. Say you will pass them to the team and go to the transfer node.\n\nCOMPANY FACTS. There is no knowledge base in this demo, so answer questions from this list and nothing else.\n\nCompany: {{company_name}}. Office number {{callback_number}}. Twenty four hour service across the northwest suburbs.\n\nOffice hours: Monday to Friday, 7 in the morning until 5 in the afternoon. Saturday, 8 in the morning until 1 in the afternoon. Closed on Sunday. Outside those hours this line is the after hours service line and an on call technician is carrying the phone.\n\nService area, these towns and postcodes only: Arlington Heights 60004 and 60005, Rolling Meadows 60008, Des Plaines 60016 and 60018, Mount Prospect 60056, Palatine 60067 and 60074, Buffalo Grove 60089, Wheeling 60090, Hoffman Estates 60169, Schaumburg 60173, 60193 and 60194. Anything else is outside the area. Never decide this yourself, always let check_service_area decide.\n\nWork we take, and how long each one runs:\n- No heat diagnostic, 90 minutes, emergency.\n- Gas or carbon monoxide safety call, 60 minutes, emergency.\n- Water leak from the system, 60 minutes, emergency.\n- No cooling diagnostic, 90 minutes, urgent.\n- Furnace tune up, 60 minutes, routine.\n- Air conditioning tune up, 60 minutes, routine.\n- Thermostat fault, 45 minutes, routine.\n- System replacement estimate, 60 minutes. This is a sales visit, not a technician dispatch.\n\nAn estimate for a new system is never booked as a technician visit. It is logged for the team who handle replacements and they call the customer back to arrange it.\n\n## Filling in the tools\n\nNever say any of this out loud. It is how you use the tools, not something to read to the caller.\n\n- triage_problem: description is what the caller just told you about the problem, as close to their own words as you can manage.\n- check_service_area: postal_code is the five digit postcode for the property, digits only. If they say it as words, such as \"six triple zero four\", convert it to 60004 before you call the tool.\n- find_or_create_customer: pass first_name, last_name, street, city and postal_code as the caller gave them. If they have called before you will get their details back without asking.\n- get_arrival_windows: urgency and job_type come from what triage_problem returned.\n- book_visit: window_id must be copied exactly from the window the caller chose. Never invent or edit it.\n- notify_on_call: summary is one short line naming the problem and the town. window is the arrival window you just confirmed.\n- log_estimate_request: details is one or two lines covering system age, type and property.\n- take_message: reason is out_of_area, no_transfer or callback_requested.\n\n## Reading things back\n\nWhen a tool gives you a sentence to say, such as an arrival window, say it as written rather than rephrasing it into a precise time. \"Today between 7 and 9 with Mike\" is a promise the company can keep. \"At 7pm\" is not.\n\nIf the caller goes quiet, wait. People pause to find a bill or read a postcode off the thermostat. Ask again once, gently, and only after a real silence.",
   "tools": [
     {
       "type": "custom",
@@ -394,6 +394,82 @@
       "response_variables": {
         "message_status": "status"
       }
+    },
+    {
+      "type": "custom",
+      "tool_id": "find_visit",
+      "name": "find_visit",
+      "description": "Look up a caller's next booked visit by their name and street address. Returns { \"status\": \"found\" | \"no_visit\" | \"not_found\", \"visit_id\": \"...\", \"say\": \"...\" }. Say the 'say' text exactly.",
+      "url": "https://<DEMO_HOST>/api/retell/tool",
+      "method": "POST",
+      "speak_during_execution": false,
+      "speak_after_execution": true,
+      "execution_message_type": "static_text",
+      "execution_message_description": "Let me look that up.",
+      "timeout_ms": 15000,
+      "max_retry": 0,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "first_name": {
+            "type": "string",
+            "description": "The caller's first name."
+          },
+          "last_name": {
+            "type": "string",
+            "description": "The caller's last name, or empty string."
+          },
+          "street": {
+            "type": "string",
+            "description": "The street address of the property, as the caller said it, or empty string."
+          }
+        },
+        "required": [
+          "first_name",
+          "last_name",
+          "street"
+        ]
+      },
+      "response_variables": {
+        "visit_status": "status",
+        "visit_id": "visit_id",
+        "client_id": "client_id",
+        "property_id": "property_id",
+        "customer_first_name": "first_name",
+        "job_type": "job_type",
+        "triage_urgency": "urgency",
+        "visit_say": "say"
+      }
+    },
+    {
+      "type": "custom",
+      "tool_id": "cancel_visit",
+      "name": "cancel_visit",
+      "description": "Cancel the visit found by find_visit. Returns { \"status\": \"cancelled\", \"say\": \"...\" }.",
+      "url": "https://<DEMO_HOST>/api/retell/tool",
+      "method": "POST",
+      "speak_during_execution": false,
+      "speak_after_execution": true,
+      "execution_message_type": "static_text",
+      "execution_message_description": "One moment.",
+      "timeout_ms": 15000,
+      "max_retry": 0,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "visit_id": {
+            "type": "string",
+            "description": "The visit_id from find_visit, copied exactly."
+          }
+        },
+        "required": [
+          "visit_id"
+        ]
+      },
+      "response_variables": {
+        "cancel_status": "status",
+        "cancel_say": "say"
+      }
     }
   ],
   "nodes": [
@@ -413,6 +489,14 @@
             "prompt": "Caller describes anything at all about their heating or cooling: no heat, no cooling, a noise, a smell, a leak, a thermostat, a tune up, a filter, or wanting a price on a new system"
           },
           "destination_node_id": "n_triage"
+        },
+        {
+          "id": "e_open_existing",
+          "transition_condition": {
+            "type": "prompt",
+            "prompt": "Caller asks about a visit already booked: whether they are on the schedule, when the technician is coming, or wants to check, change or cancel an existing booking"
+          },
+          "destination_node_id": "n_existing"
         },
         {
           "id": "e_open_person",
@@ -446,6 +530,209 @@
           "prompt": "Else"
         },
         "destination_node_id": "n_triage"
+      }
+    },
+    {
+      "id": "n_existing",
+      "type": "conversation",
+      "name": "1E. Existing booking, who are they",
+      "instruction": {
+        "type": "prompt",
+        "text": "Say: \"Sure, let me find that.\" Then ask, one at a time and only for what you do not already have: \"Can I take your name?\" and \"And the street address of the property?\" Nothing else."
+      },
+      "edges": [
+        {
+          "id": "e_ex_ok",
+          "transition_condition": {
+            "type": "prompt",
+            "prompt": "Caller has given a name and a street address, or a name and said they do not remember the address"
+          },
+          "destination_node_id": "n_find_visit"
+        },
+        {
+          "id": "e_ex_person",
+          "transition_condition": {
+            "type": "prompt",
+            "prompt": "Caller asks for a person, or is abusive"
+          },
+          "destination_node_id": "n_transfer_request"
+        }
+      ],
+      "else_edge": {
+        "id": "e_ex_else",
+        "transition_condition": {
+          "type": "prompt",
+          "prompt": "Else"
+        },
+        "destination_node_id": "n_find_visit"
+      }
+    },
+    {
+      "id": "n_find_visit",
+      "type": "function",
+      "name": "1E2. find_visit",
+      "tool_id": "find_visit",
+      "tool_type": "local",
+      "wait_for_result": true,
+      "speak_during_execution": false,
+      "instruction": {
+        "type": "static_text",
+        "text": "Let me look that up."
+      },
+      "edges": [],
+      "else_edge": {
+        "id": "e_fv_else",
+        "transition_condition": {
+          "type": "prompt",
+          "prompt": "Else"
+        },
+        "destination_node_id": "n_existing_result"
+      }
+    },
+    {
+      "id": "n_existing_result",
+      "type": "conversation",
+      "name": "1E3. Read the booking back",
+      "instruction": {
+        "type": "prompt",
+        "text": "Say the find_visit 'say' text exactly as it came back: {{visit_say}}\n\nIf {{visit_status}} is found, ask: \"Would you like to keep that, change the time, or cancel it?\" If {{visit_status}} is no_visit, ask whether they would like to book a visit now. If {{visit_status}} is not_found, say you could not find a booking under that name and ask whether they would like to book a visit now or leave a message for the office. Never read an address or a phone number back."
+      },
+      "edges": [
+        {
+          "id": "e_er_keep",
+          "transition_condition": {
+            "type": "prompt",
+            "prompt": "Caller wants to keep the booking as it is, or says that is all they needed"
+          },
+          "destination_node_id": "n_wrap_up"
+        },
+        {
+          "id": "e_er_cancel",
+          "transition_condition": {
+            "type": "prompt",
+            "prompt": "Caller wants to cancel the booking and does not want a new time"
+          },
+          "destination_node_id": "n_cancel_visit"
+        },
+        {
+          "id": "e_er_change",
+          "transition_condition": {
+            "type": "prompt",
+            "prompt": "Caller wants a different time or day for the booking"
+          },
+          "destination_node_id": "n_cancel_for_change"
+        },
+        {
+          "id": "e_er_book",
+          "transition_condition": {
+            "type": "prompt",
+            "prompt": "No booking was found and the caller wants to book a visit now"
+          },
+          "destination_node_id": "n_triage"
+        },
+        {
+          "id": "e_er_message",
+          "transition_condition": {
+            "type": "prompt",
+            "prompt": "No booking was found and the caller wants to leave a message for the office"
+          },
+          "destination_node_id": "n_take_message"
+        },
+        {
+          "id": "e_er_person",
+          "transition_condition": {
+            "type": "prompt",
+            "prompt": "Caller asks for a person, or is abusive"
+          },
+          "destination_node_id": "n_transfer_request"
+        }
+      ],
+      "else_edge": {
+        "id": "e_er_else",
+        "transition_condition": {
+          "type": "prompt",
+          "prompt": "Else"
+        },
+        "destination_node_id": "n_wrap_up"
+      }
+    },
+    {
+      "id": "n_cancel_visit",
+      "type": "function",
+      "name": "1E4. cancel_visit",
+      "tool_id": "cancel_visit",
+      "tool_type": "local",
+      "wait_for_result": true,
+      "speak_during_execution": false,
+      "instruction": {
+        "type": "static_text",
+        "text": "Cancelling that now."
+      },
+      "edges": [],
+      "else_edge": {
+        "id": "e_cv_else",
+        "transition_condition": {
+          "type": "prompt",
+          "prompt": "Else"
+        },
+        "destination_node_id": "n_cancel_done"
+      }
+    },
+    {
+      "id": "n_cancel_done",
+      "type": "conversation",
+      "name": "1E5. Cancelled",
+      "instruction": {
+        "type": "prompt",
+        "text": "Say the cancel_visit 'say' text exactly: {{cancel_say}} Then ask: \"Anything else I can help with?\""
+      },
+      "edges": [
+        {
+          "id": "e_cxl_problem",
+          "transition_condition": {
+            "type": "prompt",
+            "prompt": "Caller raises a heating or cooling problem or wants to book something"
+          },
+          "destination_node_id": "n_triage"
+        },
+        {
+          "id": "e_cxl_done",
+          "transition_condition": {
+            "type": "prompt",
+            "prompt": "Caller says no, that is all, thanks, or goodbye"
+          },
+          "destination_node_id": "n_end"
+        }
+      ],
+      "else_edge": {
+        "id": "e_cxl_else",
+        "transition_condition": {
+          "type": "prompt",
+          "prompt": "Else"
+        },
+        "destination_node_id": "n_end"
+      }
+    },
+    {
+      "id": "n_cancel_for_change",
+      "type": "function",
+      "name": "1E6. cancel_visit, then offer new windows",
+      "tool_id": "cancel_visit",
+      "tool_type": "local",
+      "wait_for_result": true,
+      "speak_during_execution": false,
+      "instruction": {
+        "type": "static_text",
+        "text": "I'll free that one up and find you another time."
+      },
+      "edges": [],
+      "else_edge": {
+        "id": "e_cfc_else",
+        "transition_condition": {
+          "type": "prompt",
+          "prompt": "Else"
+        },
+        "destination_node_id": "n_get_windows"
       }
     },
     {
@@ -536,7 +823,7 @@
       "name": "4E. Emergency, acknowledge then go straight to the postcode",
       "instruction": {
         "type": "prompt",
-        "text": "First, if the triage_problem reason mentioned gas or carbon monoxide, give the safety instruction from the global prompt before anything else: leave the property now, take everyone and any pets with you, do not switch anything on or off, and call the gas utility emergency line once you are outside.\n\nThen say the triage_problem 'say' text exactly as it came back, for example: \"I understand, no heat is something we treat as an emergency.\"\n\nThen ask one question and nothing else: \"What's the postcode at the property?\" Do not ask about the system yet, do not take their name yet, and do not mention any price. If they ask what it will cost, say the technician confirms the price on site before any work starts, then ask for the postcode again."
+        "text": "First, if the triage_problem reason mentioned gas or carbon monoxide, give the safety instruction from the global prompt before anything else: leave the property now, take everyone and any pets with you, do not switch anything on or off, and call the gas utility emergency line once you are outside.\n\nThen say the triage_problem 'say' text exactly as it came back, for example: \"I understand, no heat is something we treat as an emergency.\"\n\nThen ask one question and nothing else: \"What's the postcode at the property?\" Do not ask about the system yet, do not take their name yet, and do not mention any price. If they ask what it will cost, say the technician confirms the price on site before any work starts, then ask for the postcode again.\n\nSay the triage 'say' text once only, the first time you speak in this node; do not repeat it on later turns. If the caller asks which areas you cover, or does not know the postcode, name the towns from the company facts (Arlington Heights, Rolling Meadows, Des Plaines, Mount Prospect, Palatine, Buffalo Grove, Wheeling, Hoffman Estates and Schaumburg) and ask them to check the postcode on a piece of mail or their phone. Never decide coverage yourself; the postcode goes through check_service_area."
       },
       "edges": [
         {
@@ -563,7 +850,7 @@
       "name": "4U. Urgent, calmer, same shape",
       "instruction": {
         "type": "prompt",
-        "text": "Say the triage_problem 'say' text exactly as it came back, for example: \"Got it, that sounds like no cooling.\" Keep the tone calm and unhurried. Do not say anything about tonight, about an emergency, or about waking anybody up.\n\nThen ask one question and nothing else: \"What's the postcode at the property?\" Do not mention any price. If they ask what it will cost, say the technician confirms the price on site before any work starts, then ask for the postcode again."
+        "text": "Say the triage_problem 'say' text exactly as it came back, for example: \"Got it, that sounds like no cooling.\" Keep the tone calm and unhurried. Do not say anything about tonight, about an emergency, or about waking anybody up.\n\nThen ask one question and nothing else: \"What's the postcode at the property?\" Do not mention any price. If they ask what it will cost, say the technician confirms the price on site before any work starts, then ask for the postcode again.\n\nSay the triage 'say' text once only, the first time you speak in this node; do not repeat it on later turns. If the caller asks which areas you cover, or does not know the postcode, name the towns from the company facts (Arlington Heights, Rolling Meadows, Des Plaines, Mount Prospect, Palatine, Buffalo Grove, Wheeling, Hoffman Estates and Schaumburg) and ask them to check the postcode on a piece of mail or their phone. Never decide coverage yourself; the postcode goes through check_service_area."
       },
       "edges": [
         {
@@ -590,7 +877,7 @@
       "name": "4R. Routine, calmer still",
       "instruction": {
         "type": "prompt",
-        "text": "Say the triage_problem 'say' text exactly as it came back, for example: \"Got it, that sounds like a tune up.\" Keep it relaxed. Do not say anything about tonight and do not treat it as urgent.\n\nThen ask one question and nothing else: \"What's the postcode at the property?\" Do not mention any price. If they ask what it will cost, say the technician confirms the price on site before any work starts, then ask for the postcode again."
+        "text": "Say the triage_problem 'say' text exactly as it came back, for example: \"Got it, that sounds like a tune up.\" Keep it relaxed. Do not say anything about tonight and do not treat it as urgent.\n\nThen ask one question and nothing else: \"What's the postcode at the property?\" Do not mention any price. If they ask what it will cost, say the technician confirms the price on site before any work starts, then ask for the postcode again.\n\nSay the triage 'say' text once only, the first time you speak in this node; do not repeat it on later turns. If the caller asks which areas you cover, or does not know the postcode, name the towns from the company facts (Arlington Heights, Rolling Meadows, Des Plaines, Mount Prospect, Palatine, Buffalo Grove, Wheeling, Hoffman Estates and Schaumburg) and ask them to check the postcode on a piece of mail or their phone. Never decide coverage yourself; the postcode goes through check_service_area."
       },
       "edges": [
         {
@@ -1456,7 +1743,7 @@
       "name": "14. Wrap up",
       "instruction": {
         "type": "prompt",
-        "text": "Ask: \"Anything else I can help with?\" Keep it to that one sentence. Do not repeat the arrival window, do not repeat the address, and do not add a price."
+        "text": "Ask: \"Anything else I can help with?\" Keep it to that one sentence. Do not repeat the arrival window, do not repeat the address, and do not add a price.\n\nIf the caller asks about the technician's expertise or qualifications, say all Northline technicians are licensed and the one assigned works on that kind of system every day, then ask again whether there is anything else. Do not end the call while the caller is still asking a question."
       },
       "edges": [
         {
@@ -1466,6 +1753,14 @@
             "prompt": "Caller raises another heating or cooling problem"
           },
           "destination_node_id": "n_triage"
+        },
+        {
+          "id": "e_wrap_existing",
+          "transition_condition": {
+            "type": "prompt",
+            "prompt": "Caller asks about a booking already made, or whether they are on the schedule"
+          },
+          "destination_node_id": "n_existing"
         },
         {
           "id": "e_wu_person",

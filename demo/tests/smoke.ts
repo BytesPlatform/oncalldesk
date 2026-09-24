@@ -140,6 +140,38 @@ async function main() {
   );
   if (outOfAreaVisits[0].n > 0) throw new Error("an out of area caller must never reach the dispatch board");
 
+  // ---------------------------------------------------------------- scene 3
+  heading("scene three, a browser caller books, calls back, is found, and cancels");
+  const C_A = "call_browser_a";
+  const C_B = "call_browser_b";
+  // No caller id on a browser call. Two different people must not share a record.
+  const sam = (await runTool(call(C_A, "find_or_create_customer", { first_name: "Sam", last_name: "Reilly", street: "40 Elm Court", postal_code: "60194", city: "Schaumburg" }))) as { status: string; client_id: string; property_id: string; first_name: string };
+  const pat = (await runTool(call(C_B, "find_or_create_customer", { first_name: "Pat", last_name: "Quinn", street: "9 Oak Lane", postal_code: "60067", city: "Palatine" }))) as { status: string; client_id: string; first_name: string };
+  console.log("sam:", sam.status, sam.first_name, "| pat:", pat.status, pat.first_name);
+  if (sam.client_id === pat.client_id) throw new Error("two browser callers were given the same customer record");
+  if (pat.first_name !== "Pat") throw new Error(`Pat was matched to ${pat.first_name}`);
+
+  const samWindows = (await runTool(call(C_A, "get_arrival_windows", { urgency: "routine", job_type: "furnace_tuneup" }))) as { windows: { id: string; say: string }[] };
+  const samBooked = (await runTool(call(C_A, "book_visit", { window_id: samWindows.windows[0].id, client_id: sam.client_id, property_id: sam.property_id, urgency: "routine", job_type: "furnace_tuneup", symptom: "System not running." }))) as { status: string; say: string };
+  console.log("sam booked:", samBooked.status, samBooked.say);
+
+  // Sam calls back the next day from the browser: no number, just a name and street.
+  const found = (await runTool(call("call_browser_c", "find_visit", { first_name: "Sam", last_name: "Reilly", street: "40 Elm Court" }))) as { status: string; visit_id: string; say: string };
+  console.log("call back:", found.status, "|", found.say);
+  if (found.status !== "found") throw new Error(`a returning caller must find their booking, got ${found.status}`);
+  if (!found.say.includes(samBooked.say)) throw new Error("the read back must match the window that was booked");
+
+  const cancelled = (await runTool(call("call_browser_c", "cancel_visit", { visit_id: found.visit_id }))) as { status: string };
+  if (cancelled.status !== "cancelled") throw new Error("cancel_visit must cancel");
+  const again = (await runTool(call("call_browser_c", "find_visit", { first_name: "Sam", last_name: "Reilly", street: "40 Elm Court" }))) as { status: string };
+  if (again.status !== "no_visit") throw new Error(`after cancelling, find_visit must report no_visit, got ${again.status}`);
+
+  const unknown = (await runTool(call("call_browser_d", "find_visit", { first_name: "Nobody", last_name: "Here", street: "" }))) as { status: string };
+  if (unknown.status !== "not_found") throw new Error("an unknown caller must be not_found");
+
+  const down = (await runTool(call("call_triage_x", "triage_problem", { description: "My HVAC system is down" }))) as { urgency: string };
+  if (down.urgency !== "urgent") throw new Error(`"system is down" must triage as urgent, got ${down.urgency}`);
+
   // ---------------------------------------------------------------- scene 4
   heading("scene four, replacement estimate");
   const CALL_3 = "call_estimate_003";
@@ -176,7 +208,7 @@ async function main() {
     `select id, technician_id, starts_at, urgency from demo_visits where created_by_agent order by starts_at`,
   );
   console.log(agentVisits);
-  if (agentVisits.length !== 1) throw new Error(`expected exactly one agent visit, found ${agentVisits.length}`);
+  if (agentVisits.filter((v) => v.urgency !== "routine").length !== 1) throw new Error(`expected exactly one emergency agent visit, found ${agentVisits.length}`);
 
   heading("pipeline, scene one");
   const pipeline = await q<{ step: string; status: string; detail: string | null }>(
@@ -201,7 +233,7 @@ async function main() {
      from demo_calls`,
   );
   console.log(totals);
-  if (totals.booked !== 1) throw new Error("exactly one call should be marked booked");
+  if (totals.booked !== 2) throw new Error(`two calls should be marked booked, found ${totals.booked}`);
 
   console.log("\nAll checks passed.\n");
 }

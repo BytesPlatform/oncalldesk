@@ -68,7 +68,9 @@ export class MockJobber implements JobberGateway {
 
   async findClientByPhone(phone: string): Promise<JobberClient | null> {
     const digits = String(phone ?? "").replace(/\D/g, "").slice(-10);
-    if (digits.length < 10) return null;
+    // A placeholder number is not an identity. Matching on it handed one
+    // browser caller another caller's record.
+    if (digits.length < 10 || /^0{10}$/.test(digits)) return null;
 
     const rows = await q<{
       id: string;
@@ -96,8 +98,64 @@ export class MockJobber implements JobberGateway {
     };
   }
 
+  async findClientByName(args: { firstName: string; lastName?: string; street?: string }): Promise<JobberClient | null> {
+    const first = String(args.firstName ?? "").trim().toLowerCase();
+    if (!first) return null;
+    const last = String(args.lastName ?? "").trim().toLowerCase();
+    const street = String(args.street ?? "").trim().toLowerCase();
+
+    const rows = await q<{ id: string; first_name: string; last_name: string; phone: string; property_id: string; street1: string }>(
+      `select id, first_name, last_name, phone, property_id, street1 from demo_clients
+       where lower(first_name) = $1 order by created_at desc`,
+      [first],
+    );
+    const streetKey = street.replace(/[^a-z0-9]/g, "");
+    const hit =
+      rows.find((r) => last && r.last_name.toLowerCase() === last && (!streetKey || r.street1.toLowerCase().replace(/[^a-z0-9]/g, "").includes(streetKey.slice(0, 8)))) ??
+      rows.find((r) => streetKey && r.street1.toLowerCase().replace(/[^a-z0-9]/g, "").includes(streetKey.slice(0, 8))) ??
+      (rows.length === 1 ? rows[0] : null);
+    if (!hit) return null;
+    return { id: hit.id, firstName: hit.first_name, lastName: hit.last_name, phone: hit.phone, propertyId: hit.property_id, existing: true };
+  }
+
+  async findNextVisit(clientId: string): Promise<(ScheduledVisit & { jobTypeId: string }) | null> {
+    const rows = await q<{
+      id: string; job_id: string; title: string; starts_at: string; ends_at: string; technician_id: string;
+      urgency: string; created_by_agent: boolean; first_name: string | null; last_name: string | null; job_type_id: string | null;
+    }>(
+      `select v.id, v.job_id, v.title, v.starts_at, v.ends_at, v.technician_id, v.urgency, v.created_by_agent,
+              c.first_name, c.last_name, j.job_type_id
+       from demo_visits v
+       left join demo_clients c on c.id = v.client_id
+       left join demo_jobs j on j.id = v.job_id
+       where v.client_id = $1 and v.status <> 'cancelled' and v.ends_at > now()
+       order by v.starts_at asc limit 1`,
+      [clientId],
+    );
+    const r = rows[0];
+    if (!r) return null;
+    return {
+      id: r.id,
+      jobId: r.job_id,
+      title: r.title,
+      startAt: new Date(r.starts_at).toISOString(),
+      endAt: new Date(r.ends_at).toISOString(),
+      assignedTechnicianId: r.technician_id,
+      urgency: r.urgency,
+      clientName: [r.first_name, r.last_name ? `${r.last_name[0]}.` : null].filter(Boolean).join(" ") || "Customer",
+      createdByAgent: Boolean(r.created_by_agent),
+      jobTypeId: r.job_type_id ?? "furnace_tuneup",
+    };
+  }
+
+  async cancelVisit(visitId: string): Promise<void> {
+    await q(`update demo_visits set status = 'cancelled' where id = $1`, [visitId]);
+  }
+
   async createClient(input: JobberClientInput): Promise<JobberClient> {
-    const existing = await this.findClientByPhone(input.phone);
+    const existing =
+      (await this.findClientByPhone(input.phone)) ??
+      (await this.findClientByName({ firstName: input.firstName, lastName: input.lastName, street: input.address.street1 }));
     if (existing) return existing;
 
     const id = `cli_${Date.now().toString(36)}`;

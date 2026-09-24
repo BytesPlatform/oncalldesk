@@ -28,7 +28,7 @@ import {
   triage,
 } from "./config";
 import { q } from "./db";
-import { decodeSlot, jobber } from "./jobber";
+import { decodeSlot, jobber, speakWindow } from "./jobber";
 import { logCallEvent, logPipeline, markBooked, setCallUrgency, touchCall } from "./ops";
 import { sendMessage } from "./sms";
 import type { ToolRequest } from "./retell";
@@ -161,7 +161,7 @@ async function findOrCreateCustomer(req: ToolRequest): Promise<ToolResponse> {
   const created = await gateway.createClient({
     firstName,
     lastName: lastName || "(not given)",
-    phone: phone || "+10000000000",
+    phone: phone || "",
     address: { street1: street, city: town, province: "IL", postalCode: zip },
   });
 
@@ -424,7 +424,77 @@ async function takeMessage(req: ToolRequest): Promise<ToolResponse> {
   };
 }
 
+/** ---------------------------------------------------------------- 9 */
+
+/**
+ * "Am I booked?" A returning caller is matched on their name and street,
+ * because a browser call carries no caller id. The agent reads back only the
+ * window and the technician's first name.
+ */
+async function findVisit(req: ToolRequest): Promise<ToolResponse> {
+  const started = Date.now();
+  const gateway = jobber();
+  const phone = String(req.call.from_number ?? req.args.phone ?? "");
+  const firstName = String(req.args.first_name ?? "").trim();
+  const lastName = String(req.args.last_name ?? "").trim();
+  const street = String(req.args.street ?? "").trim();
+
+  const client =
+    (phone ? await gateway.findClientByPhone(phone) : null) ??
+    (firstName ? await gateway.findClientByName({ firstName, lastName, street }) : null);
+
+  if (!client) {
+    await logPipeline(req.call.call_id, "client_matched", "warn", "no customer under that name", Date.now() - started);
+    await logCallEvent({ callId: req.call.call_id, action: "find_visit", outcome: "no_customer" });
+    return { status: "not_found", say: "I don't have a customer under that name at that address." };
+  }
+
+  const visit = await gateway.findNextVisit(client.id);
+  if (!visit) {
+    await logPipeline(req.call.call_id, "client_matched", "ok", `${client.firstName} found, nothing booked`, Date.now() - started);
+    await logCallEvent({ callId: req.call.call_id, action: "find_visit", outcome: "no_visit" });
+    return {
+      status: "no_visit",
+      client_id: client.id,
+      property_id: client.propertyId,
+      first_name: client.firstName,
+      say: `I have you, ${client.firstName}, but there's nothing booked at the moment.`,
+    };
+  }
+
+  const say = speakWindow(new Date(visit.startAt), visit.assignedTechnicianId);
+  await logPipeline(req.call.call_id, "client_matched", "ok", `${client.firstName} found, visit ${say}`, Date.now() - started);
+  await logCallEvent({ callId: req.call.call_id, action: "find_visit", outcome: "found", detail: { visit_id: visit.id } });
+
+  return {
+    status: "found",
+    visit_id: visit.id,
+    client_id: client.id,
+    property_id: client.propertyId,
+    first_name: client.firstName,
+    job_type: visit.jobTypeId,
+    urgency: visit.urgency,
+    say: `Yes, ${client.firstName}, you're booked for ${say}.`,
+  };
+}
+
+/** ---------------------------------------------------------------- 10 */
+
+async function cancelVisit(req: ToolRequest): Promise<ToolResponse> {
+  const started = Date.now();
+  const visitId = String(req.args.visit_id ?? "").trim();
+  if (!visitId) return { status: "error", say: "I could not find that booking" };
+
+  await jobber().cancelVisit(visitId);
+  await logPipeline(req.call.call_id, "job_created", "warn", "visit cancelled at the caller's request", Date.now() - started);
+  await logCallEvent({ callId: req.call.call_id, action: "cancel_visit", outcome: "cancelled", detail: { visit_id: visitId } });
+
+  return { status: "cancelled", say: "Done, that visit is cancelled." };
+}
+
 const HANDLERS: Record<string, (req: ToolRequest) => Promise<ToolResponse>> = {
+  find_visit: findVisit,
+  cancel_visit: cancelVisit,
   triage_problem: triageProblem,
   take_message: takeMessage,
   check_service_area: checkServiceArea,
