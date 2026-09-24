@@ -169,6 +169,11 @@ async function main() {
   const unknown = (await runTool(call("call_browser_d", "find_visit", { first_name: "Nobody", last_name: "Here", street: "" }))) as { status: string };
   if (unknown.status !== "not_found") throw new Error("an unknown caller must be not_found");
 
+  const byTown = (await runTool(call("call_town_x", "check_service_area", { postal_code: "Palatine" }))) as { covered: boolean; town?: string; postal_code?: string };
+  if (!byTown.covered || byTown.town !== "Palatine") throw new Error("a town name must pass the coverage check");
+  const byBadTown = (await runTool(call("call_town_y", "check_service_area", { postal_code: "Milwaukee" }))) as { covered: boolean };
+  if (byBadTown.covered) throw new Error("Milwaukee must not be covered");
+
   const down = (await runTool(call("call_triage_x", "triage_problem", { description: "My HVAC system is down" }))) as { urgency: string };
   if (down.urgency !== "urgent") throw new Error(`"system is down" must triage as urgent, got ${down.urgency}`);
 

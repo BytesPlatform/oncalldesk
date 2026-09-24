@@ -94,7 +94,7 @@ async function checkServiceArea(req: ToolRequest): Promise<ToolResponse> {
     req.call.call_id,
     "service_area_checked",
     result.covered ? "ok" : "warn",
-    result.covered ? `${zip}, ${result.town}` : `${zip} is outside the service area`,
+    result.covered ? `${result.zip ?? zip}, ${result.town}` : `${zip} is outside the service area`,
     Date.now() - started,
   );
   await logCallEvent({
@@ -113,7 +113,7 @@ async function checkServiceArea(req: ToolRequest): Promise<ToolResponse> {
     };
   }
 
-  return { covered: true, town: result.town, say: `Yes, we cover ${result.town}.` };
+  return { covered: true, town: result.town, postal_code: result.zip ?? zip, say: `Yes, we cover ${result.town}.` };
 }
 
 /** ---------------------------------------------------------------- 3 */

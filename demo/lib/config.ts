@@ -217,12 +217,25 @@ export function jobTypeById(id: string) {
   return JOB_TYPES.find((j) => j.id === id);
 }
 
-export function inServiceArea(zip: string): { covered: boolean; town?: string } {
-  const clean = String(zip ?? "").replace(/\D/g, "").slice(0, 5);
-  const hit = SERVICE_AREA.find((s) => s.zip === clean);
-  if (hit) return { covered: true, town: hit.town };
-  const near = NEAR_MISS_ZIPS.find((s) => s.zip === clean);
-  return { covered: false, town: near?.town };
+export function inServiceArea(zip: string): { covered: boolean; town?: string; zip?: string } {
+  const raw = String(zip ?? "").trim();
+  const clean = raw.replace(/\D/g, "").slice(0, 5);
+  if (clean.length === 5) {
+    const hit = SERVICE_AREA.find((s) => s.zip === clean);
+    if (hit) return { covered: true, town: hit.town, zip: hit.zip };
+    const near = NEAR_MISS_ZIPS.find((s) => s.zip === clean);
+    return { covered: false, town: near?.town, zip: clean };
+  }
+  // A caller who does not know the postcode usually knows the town. Match
+  // that instead, and carry the town's first postcode for the record.
+  const key = raw.toLowerCase().replace(/[^a-z]/g, "");
+  if (key.length >= 4) {
+    const town = SERVICE_AREA.find((s) => s.town.toLowerCase().replace(/[^a-z]/g, "") === key || s.town.toLowerCase().replace(/[^a-z]/g, "").startsWith(key));
+    if (town) return { covered: true, town: town.town, zip: town.zip };
+    const near = NEAR_MISS_ZIPS.find((s) => s.town.toLowerCase().replace(/[^a-z]/g, "").includes(key));
+    if (near) return { covered: false, town: near.town };
+  }
+  return { covered: false };
 }
 
 /** Whoever is carrying the after hours phone on a given date. */
