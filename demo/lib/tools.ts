@@ -16,7 +16,6 @@
 
 import {
   ARRIVAL_WINDOW_MINUTES,
-  COMPANY,
   QUALIFYING_QUESTIONS,
   URGENCY_LABEL,
   type Urgency,
@@ -31,6 +30,7 @@ import { q } from "./db";
 import { decodeSlot, jobber, speakWindow } from "./jobber";
 import { logCallEvent, logPipeline, markBooked, setCallUrgency, touchCall } from "./ops";
 import { sendMessage } from "./sms";
+import { tenant, tenantId } from "./tenancy";
 import type { ToolRequest } from "./retell";
 
 export type ToolResponse = Record<string, unknown>;
@@ -318,7 +318,7 @@ async function notifyOnCall(req: ToolRequest): Promise<ToolResponse> {
       callId: req.call.call_id,
       to: callerPhone,
       label: "caller",
-      body: `${COMPANY.shortName}: you are booked for ${window}. Reply STOP to opt out.`,
+      body: `${tenant().short_name}: you are booked for ${window}. Reply STOP to opt out.`,
     });
   }
 
@@ -399,9 +399,9 @@ async function takeMessage(req: ToolRequest): Promise<ToolResponse> {
   const town = String(req.args.town ?? "").trim();
 
   await q(
-    `insert into callback_queue (call_id, caller_name, caller_phone, town, reason, note)
-     values ($1,$2,$3,$4,$5,$6)`,
-    [req.call.call_id, name || "(not given)", phone || "(not given)", town || null, reason, note || null],
+    `insert into callback_queue (tenant_id, call_id, caller_name, caller_phone, town, reason, note)
+     values ($7,$1,$2,$3,$4,$5,$6)`,
+    [req.call.call_id, name || "(not given)", phone || "(not given)", town || null, reason, note || null, tenantId()],
   );
 
   await logPipeline(

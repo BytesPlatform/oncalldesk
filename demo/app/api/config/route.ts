@@ -1,28 +1,43 @@
 /**
- * Public demo configuration. The Retell public key is meant to be visible in
- * the browser; the API key and the Jobber secret never leave the server.
+ * Public configuration for the call widget. The Retell public key is meant to
+ * be visible in the browser; the API key and the Jobber secret never leave
+ * the server. With ?scope=app the agent is the signed-in workspace's own.
  */
-import { NextResponse } from "next/server";
-import { COMPANY, SERVICE_AREA, TECHNICIANS } from "@/lib/config";
+import { NextRequest, NextResponse } from "next/server";
+import { SERVICE_AREA, TECHNICIANS, COMPANY } from "@/lib/config";
 import { connectionSource, databaseMode, databaseWarning } from "@/lib/db";
 import { jobber, jobberConfigured } from "@/lib/jobber";
+import { tenantForRequest } from "@/lib/scope";
 import { smsConfigured, smsMode } from "@/lib/sms";
+import { DEMO_TENANT_ID } from "@/lib/tenancy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const resolved = await tenantForRequest(request);
+  if (resolved instanceof NextResponse) return resolved;
+  const { tenant } = resolved;
+
+  const agentId = tenant.retell_agent_id ?? (tenant.id === DEMO_TENANT_ID ? process.env.NEXT_PUBLIC_RETELL_AGENT_ID ?? "" : "");
+  const phoneNumber = tenant.phone_number ?? (tenant.id === DEMO_TENANT_ID ? process.env.NEXT_PUBLIC_DEMO_PHONE_NUMBER ?? "" : "");
+
   return NextResponse.json({
-    company: COMPANY,
+    company: {
+      ...COMPANY,
+      name: tenant.name,
+      shortName: tenant.short_name,
+      tagline: tenant.tagline ?? COMPANY.tagline,
+      mainNumber: tenant.main_number ?? COMPANY.mainNumber,
+    },
+    tenant: { id: tenant.id, status: tenant.status, plan: tenant.plan },
     technicians: TECHNICIANS.map((t) => ({ id: t.id, firstName: t.firstName, name: t.name, tone: t.tone })),
     serviceArea: SERVICE_AREA,
     retell: {
       publicKey: process.env.NEXT_PUBLIC_RETELL_PUBLIC_KEY ?? "",
-      agentId: process.env.NEXT_PUBLIC_RETELL_AGENT_ID ?? "",
-      phoneNumber: process.env.NEXT_PUBLIC_DEMO_PHONE_NUMBER ?? "",
-      configured: Boolean(
-        process.env.NEXT_PUBLIC_RETELL_PUBLIC_KEY && process.env.NEXT_PUBLIC_RETELL_AGENT_ID,
-      ),
+      agentId,
+      phoneNumber,
+      configured: Boolean(process.env.NEXT_PUBLIC_RETELL_PUBLIC_KEY && agentId),
     },
     integrations: {
       database: { mode: databaseMode(), source: connectionSource(), warning: databaseWarning() },

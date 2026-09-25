@@ -6,15 +6,59 @@
  * way, because the contractor wants a record of what the agent did regardless
  * of where the job landed.
  *
+ * Every table carries tenant_id. The demo tenant owns the public page; each
+ * customer created from the admin console owns its own rows. See lib/tenancy.ts.
+ *
  * Kept as a TypeScript string so it bundles into serverless functions with no
- * file system access at runtime.
+ * file system access at runtime. Every statement is idempotent and the
+ * "alter table add column if not exists" lines migrate a database that was
+ * created before tenancy in place.
  */
 
 export const SCHEMA_SQL = `
+-- ---------- tenancy ----------
+-- One row per customer. The demo tenant is created at bootstrap and backs
+-- the public page; every other row is created from the admin console.
+
+create table if not exists tenants (
+  id               text primary key,
+  name             text not null,
+  short_name       text not null,
+  tagline          text,
+  main_number      text,
+  timezone         text not null default 'America/Chicago',
+  plan             text not null default 'trial',
+  included_minutes integer not null default 0,
+  status           text not null default 'invited',   -- invited, active, suspended
+  retell_agent_id  text,
+  phone_number     text,
+  config           jsonb not null default '{}'::jsonb,
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
+);
+create unique index if not exists tenants_agent on tenants (retell_agent_id) where retell_agent_id is not null;
+
+create table if not exists memberships (
+  id                  bigserial primary key,
+  tenant_id           text not null references tenants (id) on delete cascade,
+  email               text not null,
+  name                text,
+  role                text not null default 'owner',     -- owner, staff
+  clerk_user_id       text,
+  clerk_invitation_id text,
+  invite_status       text not null default 'pending',   -- pending, sent, accepted, failed
+  invite_error        text,
+  invited_at          timestamptz not null default now(),
+  accepted_at         timestamptz,
+  unique (tenant_id, email)
+);
+create index if not exists memberships_user on memberships (clerk_user_id);
+
 -- ---------- stand-in for Jobber ----------
 
 create table if not exists demo_clients (
   id               text primary key,
+  tenant_id        text not null default 'demo',
   first_name       text not null,
   last_name        text not null,
   phone            text not null,
@@ -31,6 +75,7 @@ create index if not exists demo_clients_phone on demo_clients (phone);
 
 create table if not exists demo_jobs (
   id               text primary key,
+  tenant_id        text not null default 'demo',
   client_id        text not null,
   property_id      text not null,
   title            text not null,
@@ -43,6 +88,7 @@ create table if not exists demo_jobs (
 
 create table if not exists demo_visits (
   id               text primary key,
+  tenant_id        text not null default 'demo',
   job_id           text not null,
   client_id        text not null,
   technician_id    text not null,
@@ -58,6 +104,7 @@ create index if not exists demo_visits_starts_at on demo_visits (starts_at);
 
 create table if not exists demo_requests (
   id         text primary key,
+  tenant_id        text not null default 'demo',
   client_id  text not null,
   property_id text not null,
   title      text not null,
@@ -68,6 +115,7 @@ create table if not exists demo_requests (
 
 create table if not exists demo_notes (
   id         bigserial primary key,
+  tenant_id        text not null default 'demo',
   client_id  text not null,
   message    text not null,
   created_at timestamptz not null default now()
@@ -77,6 +125,7 @@ create table if not exists demo_notes (
 
 create table if not exists call_events (
   id            bigserial primary key,
+  tenant_id        text not null default 'demo',
   occurred_at   timestamptz not null default now(),
   call_id       text not null,
   action        text not null,
@@ -88,6 +137,7 @@ create index if not exists call_events_call_id on call_events (call_id);
 
 create table if not exists pipeline_events (
   id          bigserial primary key,
+  tenant_id        text not null default 'demo',
   occurred_at timestamptz not null default now(),
   call_id     text not null,
   step        text not null,
@@ -101,6 +151,7 @@ create index if not exists pipeline_events_call_id on pipeline_events (call_id);
 -- queued rather than sent, and the demo shows them on a phone mock up.
 create table if not exists outbound_messages (
   id          bigserial primary key,
+  tenant_id        text not null default 'demo',
   created_at  timestamptz not null default now(),
   call_id     text,
   to_number   text not null,
@@ -119,6 +170,7 @@ create index if not exists outbound_messages_created_at on outbound_messages (cr
 -- list in the morning.
 create table if not exists callback_queue (
   id           bigserial primary key,
+  tenant_id        text not null default 'demo',
   created_at   timestamptz not null default now(),
   call_id      text not null,
   caller_name  text not null,
@@ -132,6 +184,7 @@ create index if not exists callback_queue_created_at on callback_queue (created_
 
 create table if not exists demo_calls (
   call_id     text primary key,
+  tenant_id        text not null default 'demo',
   started_at  timestamptz not null default now(),
   ended_at    timestamptz,
   channel     text not null default 'web',
@@ -143,10 +196,39 @@ create table if not exists demo_calls (
   ticket_value numeric(10,2),
   summary     text
 );
+
+-- ---------- migration for databases created before tenancy ----------
+alter table demo_clients add column if not exists tenant_id text not null default 'demo';
+alter table demo_jobs add column if not exists tenant_id text not null default 'demo';
+alter table demo_visits add column if not exists tenant_id text not null default 'demo';
+alter table demo_requests add column if not exists tenant_id text not null default 'demo';
+alter table demo_notes add column if not exists tenant_id text not null default 'demo';
+alter table call_events add column if not exists tenant_id text not null default 'demo';
+alter table pipeline_events add column if not exists tenant_id text not null default 'demo';
+alter table outbound_messages add column if not exists tenant_id text not null default 'demo';
+alter table callback_queue add column if not exists tenant_id text not null default 'demo';
+alter table demo_calls add column if not exists tenant_id text not null default 'demo';
+create index if not exists demo_clients_tenant on demo_clients (tenant_id);
+create index if not exists demo_visits_tenant on demo_visits (tenant_id, starts_at);
+create index if not exists demo_jobs_tenant on demo_jobs (tenant_id);
+create index if not exists call_events_tenant on call_events (tenant_id, id);
+create index if not exists pipeline_events_tenant on pipeline_events (tenant_id, id);
+create index if not exists outbound_messages_tenant on outbound_messages (tenant_id, id);
+create index if not exists callback_queue_tenant on callback_queue (tenant_id, id);
+create index if not exists demo_calls_tenant on demo_calls (tenant_id, started_at);
 `;
 
-export const TRUNCATE_SQL = `
-truncate table pipeline_events, call_events, outbound_messages, callback_queue, demo_calls,
-               demo_notes, demo_requests, demo_visits, demo_jobs, demo_clients
-  restart identity cascade;
-`;
+/** The tables that hold a tenant's data, in an order safe to clear. */
+export const TENANT_TABLES = [
+  "pipeline_events",
+  "call_events",
+  "outbound_messages",
+  "callback_queue",
+  "demo_calls",
+  "demo_notes",
+  "demo_requests",
+  "demo_visits",
+  "demo_jobs",
+  "demo_clients",
+] as const;
+

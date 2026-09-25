@@ -17,6 +17,8 @@ export interface CallPanelProps {
   phase: CallPhase;
   isLive: boolean;
   configured: boolean;
+  /** Which workspace the panel belongs to; changes the unconfigured hint. */
+  scope?: "demo" | "app";
   callId: string | null;
   startedAt: number | null;
   agentTalking: boolean;
@@ -65,6 +67,7 @@ export default function CallPanel(props: CallPanelProps) {
     phase,
     isLive,
     configured,
+    scope = "demo",
     callId,
     startedAt,
     agentTalking,
@@ -152,12 +155,19 @@ export default function CallPanel(props: CallPanelProps) {
           </button>
 
           {!configured ? (
-            <p className="setup-note">
-              Voice is not wired up on this deployment. Set{" "}
-              <code>NEXT_PUBLIC_RETELL_PUBLIC_KEY</code> and{" "}
-              <code>NEXT_PUBLIC_RETELL_AGENT_ID</code>, then reload. Everything else on this
-              screen is live.
-            </p>
+            scope === "app" ? (
+              <p className="setup-note">
+                This workspace has no assistant yet. Onboarding creates one; until then, every other part of
+                this screen is live and calls will appear here once the assistant answers its first one.
+              </p>
+            ) : (
+              <p className="setup-note">
+                Voice is not wired up on this deployment. Set{" "}
+                <code>NEXT_PUBLIC_RETELL_PUBLIC_KEY</code> and{" "}
+                <code>NEXT_PUBLIC_RETELL_AGENT_ID</code>, then reload. Everything else on this
+                screen is live.
+              </p>
+            )
           ) : null}
 
           {phoneNumber ? (

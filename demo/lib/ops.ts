@@ -9,6 +9,7 @@
 
 import { q } from "./db";
 import { jobTypeById } from "./config";
+import { tenantId } from "./tenancy";
 
 export type PipelineStatus = "running" | "ok" | "warn" | "error";
 
@@ -35,9 +36,9 @@ export async function logPipeline(
   durationMs?: number,
 ): Promise<void> {
   await q(
-    `insert into pipeline_events (call_id, step, status, detail, duration_ms)
-     values ($1,$2,$3,$4,$5)`,
-    [callId, step, status, detail ?? null, durationMs ?? null],
+    `insert into pipeline_events (tenant_id, call_id, step, status, detail, duration_ms)
+     values ($6,$1,$2,$3,$4,$5)`,
+    [callId, step, status, detail ?? null, durationMs ?? null, tenantId()],
   );
 }
 
@@ -49,14 +50,15 @@ export async function logCallEvent(input: {
   detail?: Record<string, unknown> | null;
 }): Promise<void> {
   await q(
-    `insert into call_events (call_id, action, outcome, urgency, detail)
-     values ($1,$2,$3,$4,$5)`,
+    `insert into call_events (tenant_id, call_id, action, outcome, urgency, detail)
+     values ($6,$1,$2,$3,$4,$5)`,
     [
       input.callId,
       input.action,
       input.outcome,
       input.urgency ?? null,
       input.detail ? JSON.stringify(input.detail) : null,
+      tenantId(),
     ],
   );
 }
@@ -66,15 +68,15 @@ export async function touchCall(
   args: { channel?: "web" | "phone"; fromNumber?: string; afterHours?: boolean } = {},
 ): Promise<void> {
   await q(
-    `insert into demo_calls (call_id, channel, from_number, after_hours)
-     values ($1,$2,$3,$4)
+    `insert into demo_calls (tenant_id, call_id, channel, from_number, after_hours)
+     values ($5,$1,$2,$3,$4)
      on conflict (call_id) do nothing`,
-    [callId, args.channel ?? "web", args.fromNumber ?? null, args.afterHours ?? false],
+    [callId, args.channel ?? "web", args.fromNumber ?? null, args.afterHours ?? false, tenantId()],
   );
 }
 
 export async function setCallUrgency(callId: string, urgency: string): Promise<void> {
-  await q(`update demo_calls set urgency = $2 where call_id = $1`, [callId, urgency]);
+  await q(`update demo_calls set urgency = $2 where call_id = $1 and tenant_id = $3`, [callId, urgency, tenantId()]);
 }
 
 /**
@@ -83,16 +85,17 @@ export async function setCallUrgency(callId: string, urgency: string): Promise<v
  */
 export async function markBooked(callId: string, jobTypeId: string): Promise<void> {
   const ticket = jobTypeById(jobTypeId)?.typicalTicket ?? 0;
-  await q(`update demo_calls set booked = true, ticket_value = $2 where call_id = $1`, [
+  await q(`update demo_calls set booked = true, ticket_value = $2 where call_id = $1 and tenant_id = $3`, [
     callId,
     ticket,
+    tenantId(),
   ]);
 }
 
 export async function closeCall(callId: string, outcome: string, summary?: string): Promise<void> {
   await q(
     `update demo_calls set ended_at = now(), outcome = $2, summary = coalesce($3, summary)
-     where call_id = $1`,
-    [callId, outcome, summary ?? null],
+     where call_id = $1 and tenant_id = $4`,
+    [callId, outcome, summary ?? null, tenantId()],
   );
 }

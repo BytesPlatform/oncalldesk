@@ -109,7 +109,7 @@ function explainCallError(message: string): string {
   return message || "The call could not be connected.";
 }
 
-export function useRetellCall(): UseRetellCall {
+export function useRetellCall(scope: "demo" | "app" = "demo"): UseRetellCall {
   const [config, setConfig] = useState<DemoConfig | null>(null);
   const [phase, setPhase] = useState<CallPhase>("idle");
   const [callId, setCallId] = useState<string | null>(null);
@@ -138,7 +138,7 @@ export function useRetellCall(): UseRetellCall {
   // Public demo configuration. The Retell public key is meant to be visible.
   useEffect(() => {
     let alive = true;
-    fetch("/api/config", { cache: "no-store" })
+    fetch(`/api/config?scope=${scope}`, { cache: "no-store" })
       .then((r) => (r.ok ? (r.json() as Promise<DemoConfig>) : null))
       .then((data) => {
         if (alive && data) setConfig(data);
@@ -149,7 +149,7 @@ export function useRetellCall(): UseRetellCall {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [scope]);
 
   const applyTranscript = useCallback((transcript: LiveCallUtterance[]) => {
     const speech: TranscriptTurn[] = [];

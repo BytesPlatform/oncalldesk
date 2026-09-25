@@ -24,6 +24,9 @@ const MAX_ROWS = 400;
 /** Postgres bigserial arrives as a string over the pg driver and a number over PGlite. */
 export type RowId = number | string;
 
+/** Which workspace the poll reads: the public demo, or the signed-in one. */
+export type Scope = "demo" | "app";
+
 export type TechnicianTone = "blue" | "rust" | "moss" | "slate";
 
 export interface VisitRow {
@@ -240,7 +243,7 @@ export interface UseDemoState {
   clear: () => void;
 }
 
-export function useDemoState(dayOffset: number): UseDemoState {
+export function useDemoState(dayOffset: number, scope: Scope = "demo"): UseDemoState {
   const [state, setState] = useState<DemoState>(INITIAL);
 
   const cursors = useRef<Cursors>({ pipeline: 0, events: 0, messages: 0, callbacks: 0 });
@@ -287,7 +290,7 @@ export function useDemoState(dayOffset: number): UseDemoState {
       const mine = generation.current;
       const c = cursors.current;
       const url =
-        `/api/state?pipeline=${c.pipeline}&events=${c.events}` +
+        `/api/state?scope=${scope}&pipeline=${c.pipeline}&events=${c.events}` +
         `&messages=${c.messages}&callbacks=${c.callbacks}&day=${day.current}`;
 
       try {
@@ -343,7 +346,7 @@ export function useDemoState(dayOffset: number): UseDemoState {
       if (timer) clearTimeout(timer);
       document.removeEventListener("visibilitychange", wake);
     };
-  }, []);
+  }, [scope]);
 
   return { state, clear };
 }

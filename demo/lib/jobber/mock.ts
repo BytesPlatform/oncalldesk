@@ -11,6 +11,7 @@
  */
 
 import { q } from "../db";
+import { tenantId } from "../tenancy";
 import {
   ARRIVAL_WINDOW_MINUTES,
   DAY_END_HOUR,
@@ -81,9 +82,9 @@ export class MockJobber implements JobberGateway {
     }>(
       `select id, first_name, last_name, phone, property_id
        from demo_clients
-       where right(regexp_replace(phone, '[^0-9]', '', 'g'), 10) = $1
+       where tenant_id = $2 and right(regexp_replace(phone, '[^0-9]', '', 'g'), 10) = $1
        limit 1`,
-      [digits],
+      [digits, tenantId()],
     );
 
     if (!rows.length) return null;
@@ -106,8 +107,8 @@ export class MockJobber implements JobberGateway {
 
     const rows = await q<{ id: string; first_name: string; last_name: string; phone: string; property_id: string; street1: string }>(
       `select id, first_name, last_name, phone, property_id, street1 from demo_clients
-       where lower(first_name) = $1 order by created_at desc`,
-      [first],
+       where tenant_id = $2 and lower(first_name) = $1 order by created_at desc`,
+      [first, tenantId()],
     );
     const streetKey = street.replace(/[^a-z0-9]/g, "");
     const hit =
@@ -128,9 +129,9 @@ export class MockJobber implements JobberGateway {
        from demo_visits v
        left join demo_clients c on c.id = v.client_id
        left join demo_jobs j on j.id = v.job_id
-       where v.client_id = $1 and v.status <> 'cancelled' and v.ends_at > now()
+       where v.tenant_id = $2 and v.client_id = $1 and v.status <> 'cancelled' and v.ends_at > now()
        order by v.starts_at asc limit 1`,
-      [clientId],
+      [clientId, tenantId()],
     );
     const r = rows[0];
     if (!r) return null;
@@ -149,7 +150,7 @@ export class MockJobber implements JobberGateway {
   }
 
   async cancelVisit(visitId: string): Promise<void> {
-    await q(`update demo_visits set status = 'cancelled' where id = $1`, [visitId]);
+    await q(`update demo_visits set status = 'cancelled' where id = $1 and tenant_id = $2`, [visitId, tenantId()]);
   }
 
   async createClient(input: JobberClientInput): Promise<JobberClient> {
@@ -164,8 +165,8 @@ export class MockJobber implements JobberGateway {
     await q(
       `insert into demo_clients
          (id, first_name, last_name, phone, email, property_id,
-          street1, city, province, postal_code, created_by_agent)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,true)`,
+          street1, city, province, postal_code, created_by_agent, tenant_id)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,true,$11)`,
       [
         id,
         input.firstName,
@@ -177,6 +178,7 @@ export class MockJobber implements JobberGateway {
         input.address.city,
         input.address.province,
         input.address.postalCode,
+        tenantId(),
       ],
     );
 
@@ -202,8 +204,8 @@ export class MockJobber implements JobberGateway {
 
     const busy = await q<{ technician_id: string; starts_at: string; ends_at: string }>(
       `select technician_id, starts_at, ends_at from demo_visits
-       where status <> 'cancelled' and starts_at between $1 and $2`,
-      [from.toISOString(), to.toISOString()],
+       where tenant_id = $3 and status <> 'cancelled' and starts_at between $1 and $2`,
+      [from.toISOString(), to.toISOString(), tenantId()],
     );
 
     const taken = busy.map((b) => ({
@@ -279,16 +281,16 @@ export class MockJobber implements JobberGateway {
 
     await q(
       `insert into demo_jobs
-         (id, client_id, property_id, title, instructions, job_type_id, urgency, created_by_agent)
-       values ($1,$2,$3,$4,$5,$6,$7,true)`,
-      [jobId, input.clientId, input.propertyId, input.title, input.instructions, input.jobTypeId, input.urgency],
+         (id, client_id, property_id, title, instructions, job_type_id, urgency, created_by_agent, tenant_id)
+       values ($1,$2,$3,$4,$5,$6,$7,true,$8)`,
+      [jobId, input.clientId, input.propertyId, input.title, input.instructions, input.jobTypeId, input.urgency, tenantId()],
     );
 
     await q(
       `insert into demo_visits
          (id, job_id, client_id, technician_id, title, starts_at, ends_at,
-          urgency, status, created_by_agent)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,'scheduled',true)`,
+          urgency, status, created_by_agent, tenant_id)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,'scheduled',true,$9)`,
       [
         visitId,
         jobId,
@@ -298,6 +300,7 @@ export class MockJobber implements JobberGateway {
         input.startAt.toISOString(),
         input.endAt.toISOString(),
         input.urgency,
+        tenantId(),
       ],
     );
 
@@ -307,17 +310,18 @@ export class MockJobber implements JobberGateway {
   async createRequest(input: CreateRequestInput): Promise<{ requestId: string }> {
     const requestId = `req_${Date.now().toString(36)}`;
     await q(
-      `insert into demo_requests (id, client_id, property_id, title, details)
-       values ($1,$2,$3,$4,$5)`,
-      [requestId, input.clientId, input.propertyId, input.title, input.details],
+      `insert into demo_requests (id, client_id, property_id, title, details, tenant_id)
+       values ($1,$2,$3,$4,$5,$6)`,
+      [requestId, input.clientId, input.propertyId, input.title, input.details, tenantId()],
     );
     return { requestId };
   }
 
   async addNote(args: { clientId: string; message: string }): Promise<void> {
-    await q(`insert into demo_notes (client_id, message) values ($1,$2)`, [
+    await q(`insert into demo_notes (client_id, message, tenant_id) values ($1,$2,$3)`, [
       args.clientId,
       args.message,
+      tenantId(),
     ]);
   }
 
@@ -344,9 +348,9 @@ export class MockJobber implements JobberGateway {
               c.first_name, c.last_name
        from demo_visits v
        left join demo_clients c on c.id = v.client_id
-       where v.starts_at >= $1 and v.starts_at < $2 and v.status <> 'cancelled'
+       where v.tenant_id = $3 and v.starts_at >= $1 and v.starts_at < $2 and v.status <> 'cancelled'
        order by v.starts_at asc`,
-      [from.toISOString(), to.toISOString()],
+      [from.toISOString(), to.toISOString(), tenantId()],
     );
 
     return rows.map((r) => ({

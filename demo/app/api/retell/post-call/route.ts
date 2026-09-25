@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { closeCall, logCallEvent, logPipeline, touchCall } from "@/lib/ops";
 import { signatureRequired, verifyRetellSignature } from "@/lib/retell";
+import { tenantByAgentId, withTenant } from "@/lib/tenancy";
 import { isAfterHours } from "@/lib/config";
 
 export const runtime = "nodejs";
@@ -15,6 +16,7 @@ export async function POST(request: NextRequest) {
     event: string;
     call: {
       call_id: string;
+      agent_id?: string;
       from_number?: string;
       disconnection_reason?: string;
       call_analysis?: {
@@ -38,45 +40,50 @@ export async function POST(request: NextRequest) {
   const call = payload.call;
   if (!call?.call_id) return NextResponse.json({ error: "missing call_id" }, { status: 400 });
 
-  await touchCall(call.call_id, {
-    channel: call.from_number ? "phone" : "web",
-    fromNumber: call.from_number,
-    afterHours: isAfterHours(),
+  const tenant = await tenantByAgentId(call.agent_id);
+  if (!tenant) return NextResponse.json({ error: "unknown agent" }, { status: 404 });
+
+  return withTenant(tenant, async () => {
+    await touchCall(call.call_id, {
+      channel: call.from_number ? "phone" : "web",
+      fromNumber: call.from_number,
+      afterHours: isAfterHours(),
+    });
+
+    if (payload.event === "call_started") {
+      await logCallEvent({ callId: call.call_id, action: "call_started", outcome: "ok" });
+      return NextResponse.json({ received: true });
+    }
+
+    if (payload.event === "call_ended") {
+      await logCallEvent({
+        callId: call.call_id,
+        action: "call_ended",
+        outcome: call.disconnection_reason ?? "ok",
+      });
+      await closeCall(call.call_id, call.disconnection_reason ?? "ended");
+      return NextResponse.json({ received: true });
+    }
+
+    if (payload.event === "call_analyzed") {
+      const analysis = call.call_analysis ?? {};
+      const custom = analysis.custom_analysis_data ?? {};
+      const outcome = String(custom.outcome ?? "completed");
+
+      await closeCall(call.call_id, outcome, analysis.call_summary);
+      await logCallEvent({
+        callId: call.call_id,
+        action: "call_analyzed",
+        outcome,
+        urgency: custom.urgency ? String(custom.urgency) : null,
+        detail: { sentiment: analysis.user_sentiment ?? null },
+      });
+      await logPipeline(call.call_id, "caller_confirmed", "ok", `call closed as ${outcome}`);
+      return NextResponse.json({ received: true });
+    }
+
+    return NextResponse.json({ received: true, ignored: payload.event });
   });
-
-  if (payload.event === "call_started") {
-    await logCallEvent({ callId: call.call_id, action: "call_started", outcome: "ok" });
-    return NextResponse.json({ received: true });
-  }
-
-  if (payload.event === "call_ended") {
-    await logCallEvent({
-      callId: call.call_id,
-      action: "call_ended",
-      outcome: call.disconnection_reason ?? "ok",
-    });
-    await closeCall(call.call_id, call.disconnection_reason ?? "ended");
-    return NextResponse.json({ received: true });
-  }
-
-  if (payload.event === "call_analyzed") {
-    const analysis = call.call_analysis ?? {};
-    const custom = analysis.custom_analysis_data ?? {};
-    const outcome = String(custom.outcome ?? "completed");
-
-    await closeCall(call.call_id, outcome, analysis.call_summary);
-    await logCallEvent({
-      callId: call.call_id,
-      action: "call_analyzed",
-      outcome,
-      urgency: custom.urgency ? String(custom.urgency) : null,
-      detail: { sentiment: analysis.user_sentiment ?? null },
-    });
-    await logPipeline(call.call_id, "caller_confirmed", "ok", `call closed as ${outcome}`);
-    return NextResponse.json({ received: true });
-  }
-
-  return NextResponse.json({ received: true, ignored: payload.event });
 }
 
 export async function GET() {

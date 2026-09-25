@@ -11,6 +11,7 @@
  */
 
 import { q } from "./db";
+import { tenantId } from "./tenancy";
 
 export type MessageTarget = "caller" | "technician";
 
@@ -70,9 +71,9 @@ export async function sendMessage(args: {
   const provider = smsMode();
 
   const rows = await q<{ id: number }>(
-    `insert into outbound_messages (call_id, to_number, to_label, body, provider, status)
-     values ($1,$2,$3,$4,$5,'queued') returning id`,
-    [args.callId ?? null, args.to, args.label, args.body, provider],
+    `insert into outbound_messages (tenant_id, call_id, to_number, to_label, body, provider, status)
+     values ($6,$1,$2,$3,$4,$5,'queued') returning id`,
+    [args.callId ?? null, args.to, args.label, args.body, provider, tenantId()],
   );
   const id = rows[0]?.id ?? 0;
 

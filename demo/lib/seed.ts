@@ -38,14 +38,14 @@ function at(offsetDays: number, hour: number, minute: number): Date {
   return d;
 }
 
-export async function seed(): Promise<void> {
+export async function seed(tenantId = "demo"): Promise<void> {
   for (const c of DEMO_CLIENTS) {
     await raw(
       `insert into demo_clients
-         (id, first_name, last_name, phone, property_id, street1, city, province, postal_code)
-       values ($1,$2,$3,$4,$5,$6,$7,'IL',$8)
+         (id, tenant_id, first_name, last_name, phone, property_id, street1, city, province, postal_code)
+       values ($1,$9,$2,$3,$4,$5,$6,$7,'IL',$8)
        on conflict (id) do nothing`,
-      [c.id, c.first, c.last, c.phone, `prop_${c.id.slice(4)}`, c.street, c.city, c.zip],
+      [c.id, c.first, c.last, c.phone, `prop_${c.id.slice(4)}`, c.street, c.city, c.zip, tenantId],
     );
   }
 
@@ -86,14 +86,14 @@ export async function seed(): Promise<void> {
 
         const jobId = `job_seed_${++n}`;
         await raw(
-          `insert into demo_jobs (id, client_id, property_id, title, job_type_id, urgency)
-           values ($1,$2,$3,$4,$5,$6) on conflict (id) do nothing`,
-          [jobId, client.id, `prop_${client.id.slice(4)}`, type.name, type.id, type.urgency],
+          `insert into demo_jobs (id, tenant_id, client_id, property_id, title, job_type_id, urgency)
+           values ($1,$7,$2,$3,$4,$5,$6) on conflict (id) do nothing`,
+          [jobId, client.id, `prop_${client.id.slice(4)}`, type.name, type.id, type.urgency, tenantId],
         );
         await raw(
           `insert into demo_visits
-             (id, job_id, client_id, technician_id, title, starts_at, ends_at, urgency, status)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,'scheduled')
+             (id, tenant_id, job_id, client_id, technician_id, title, starts_at, ends_at, urgency, status)
+           values ($1,$9,$2,$3,$4,$5,$6,$7,$8,'scheduled')
            on conflict (id) do nothing`,
           [
             `vis_seed_${n}`,
@@ -104,6 +104,7 @@ export async function seed(): Promise<void> {
             start.toISOString(),
             end.toISOString(),
             type.urgency,
+            tenantId,
           ],
         );
 

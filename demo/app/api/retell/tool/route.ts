@@ -2,6 +2,9 @@
  * The endpoint Retell calls when the agent uses a tool. This is the pipeline
  * entry point: verify the signature first, record that verification so the
  * client can watch it happen, then dispatch.
+ *
+ * The agent id on the call decides whose workspace the call writes into. An
+ * agent nobody owns is refused before anything is written.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -9,6 +12,7 @@ import { databaseWarning } from "@/lib/db";
 import { isAfterHours } from "@/lib/config";
 import { logPipeline, touchCall } from "@/lib/ops";
 import { signatureRequired, verifyRetellSignature, type ToolRequest } from "@/lib/retell";
+import { tenantByAgentId, withTenant } from "@/lib/tenancy";
 import { runTool } from "@/lib/tools";
 
 export const runtime = "nodejs";
@@ -49,28 +53,37 @@ async function handle(request: NextRequest) {
     process.env.RETELL_API_KEY,
   );
 
-  // The after hours flag has to be set on the row that is created first, or
-  // the "calls answered after hours" figure on the revenue panel stays at zero.
-  await touchCall(callId, {
-    channel: payload.call.from_number ? "phone" : "web",
-    fromNumber: payload.call.from_number,
-    afterHours: isAfterHours(),
-  });
-
-  if (!check.ok) {
-    if (signatureRequired()) {
-      await logPipeline(callId, "call_answered", "error", check.reason);
-      return NextResponse.json({ error: "invalid signature" }, { status: 401 });
-    }
-    await logPipeline(callId, "call_answered", "warn", `unsigned, allowed by demo setting`);
-  } else {
-    await logPipeline(callId, "call_answered", "ok", `verified, ${check.ageMs} ms old`, Date.now() - startedAt);
+  // Refuse an unsigned request before touching the database, unless the demo
+  // setting allows it. The signature is what proves the agent id is honest.
+  if (!check.ok && signatureRequired()) {
+    return NextResponse.json({ error: "invalid signature" }, { status: 401 });
   }
 
-  await logPipeline(callId, "intent_classified", "ok", payload.name.replace(/_/g, " "));
+  const tenant = await tenantByAgentId(payload.call.agent_id);
+  if (!tenant) {
+    return NextResponse.json({ error: "unknown agent", agent_id: payload.call.agent_id ?? null }, { status: 404 });
+  }
 
-  const result = await runTool(payload);
-  return NextResponse.json(result);
+  return withTenant(tenant, async () => {
+    // The after hours flag has to be set on the row that is created first, or
+    // the "calls answered after hours" figure on the revenue panel stays at zero.
+    await touchCall(callId, {
+      channel: payload.call.from_number ? "phone" : "web",
+      fromNumber: payload.call.from_number,
+      afterHours: isAfterHours(),
+    });
+
+    if (!check.ok) {
+      await logPipeline(callId, "call_answered", "warn", `unsigned, allowed by demo setting`);
+    } else {
+      await logPipeline(callId, "call_answered", "ok", `verified, ${check.ageMs} ms old`, Date.now() - startedAt);
+    }
+
+    await logPipeline(callId, "intent_classified", "ok", payload.name.replace(/_/g, " "));
+
+    const result = await runTool(payload);
+    return NextResponse.json(result);
+  });
 }
 
 export async function GET() {
