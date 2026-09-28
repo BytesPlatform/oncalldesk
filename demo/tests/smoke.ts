@@ -11,6 +11,8 @@
 // The emergency scene is an after hours call, so pin that regardless of when
 // the test runs. The demo uses the same switch.
 process.env.DEMO_FORCE_AFTER_HOURS = "true";
+// Never against the real database: the local env may carry DATABASE_URL.
+for (const k of ["DATABASE_URL", "POSTGRES_URL", "POSTGRES_PRISMA_URL", "DATABASE_POSTGRES_URL", "POSTGRES_URL_NON_POOLING", "DATABASE_URL_UNPOOLED"]) delete process.env[k];
 
 import { rm } from "node:fs/promises";
 import { q, resetDemo } from "../lib/db";
