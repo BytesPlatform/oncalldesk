@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const SITE_URL = "https://hvac-ai-receptionist-lovat.vercel.app";
+const SITE_URL = "https://oncalldesk.vercel.app";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const pages: [string, number][] = [

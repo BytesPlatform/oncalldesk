@@ -4,7 +4,7 @@ import "./globals.css";
 
 const clerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY);
 
-const SITE_URL = "https://hvac-ai-receptionist-lovat.vercel.app";
+const SITE_URL = "https://oncalldesk.vercel.app";
 const TITLE = "AI Receptionist for HVAC | 24/7 Emergency Dispatch";
 const DESCRIPTION =
   "AI receptionist for HVAC contractors that answers every call, triages no-heat and no-AC emergencies, books jobs and texts your on-call tech. See the demo.";

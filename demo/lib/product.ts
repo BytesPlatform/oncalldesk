@@ -27,7 +27,7 @@ export const PRODUCT = {
   worker: "technician",
   /** What the buyer calls a booking. */
   booking: "job",
-  siteUrl: process.env.NEXT_PUBLIC_SITE_URL || "https://hvac-ai-receptionist-lovat.vercel.app",
+  siteUrl: process.env.NEXT_PUBLIC_SITE_URL || "https://oncalldesk.vercel.app",
   salesInbox: process.env.SALES_INBOX || "bytesuite@bytesplatform.com",
   /** Where product email is sent from. Must be a verified sender in SendGrid. */
   fromEmail: process.env.SENDGRID_FROM_EMAIL || "hello@bytesplatform.com",
