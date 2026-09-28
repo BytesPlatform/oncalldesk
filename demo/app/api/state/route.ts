@@ -17,7 +17,7 @@ import { cfg, isAfterHoursFor, onCallTechnicianFor, onboardingComplete } from "@
 import { jobber } from "@/lib/jobber";
 import { tenantForRequest } from "@/lib/scope";
 import { smsMode } from "@/lib/sms";
-import { tenantId, withTenant, type Tenant } from "@/lib/tenancy";
+import { DEMO_TENANT_ID, tenantId, withTenant, type Tenant } from "@/lib/tenancy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -113,7 +113,7 @@ async function readState(request: NextRequest, tenant: Tenant) {
       sms: smsMode(),
       afterHours,
       onCall: onCall.firstName,
-      onboarded: onboardingComplete(c),
+      onboarded: tenant.id === DEMO_TENANT_ID || onboardingComplete(c),
       phoneNumber: tenant.phone_number ?? (tenant.id === "demo" ? process.env.NEXT_PUBLIC_DEMO_PHONE_NUMBER ?? "" : ""),
     },
     board: {

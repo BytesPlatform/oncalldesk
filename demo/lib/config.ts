@@ -134,7 +134,7 @@ export const TRIAGE_RULES: TriageRule[] = [
   {
     urgency: "urgent",
     reason: "no cooling",
-    keywords: ["no ac", "no air conditioning", "ac is out", "not cooling", "blowing warm"],
+    keywords: ["no ac", "no air conditioning", "ac is out", "not cooling", "no cooling", "blowing warm", "ac is dead", "ac died", "ac quit", "ac is down", "ac stopped", "air conditioner is dead", "air conditioner died", "air conditioning is dead", "air conditioner stopped", "air conditioning stopped", "no cold air", "not blowing cold", "won't cool", "not getting cold"],
     dispatchTonight: false,
   },
   {
