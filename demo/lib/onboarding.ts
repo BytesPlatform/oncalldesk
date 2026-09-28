@@ -16,6 +16,7 @@ import { q } from "./db";
 import { enqueue, registerJob, type Job } from "./jobs";
 import { sendEmail } from "./messaging/email";
 import { forwardingInstructions } from "./provision";
+import { weekStats } from "./stats";
 import { getTenant, listMemberships, updateTenant, type Tenant } from "./tenancy";
 import { ONBOARDING_STEPS, configOf, type StepId, type TenantConfig } from "./tenant-config";
 
@@ -116,18 +117,11 @@ async function runLifecycle(job: Job): Promise<string> {
   const owner = await ownerOf(t);
   if (!owner) return "no owner";
   const kind = String(job.payload.kind);
-  const [stats] = await q<{ calls: number; after_hours: number; booked: number; revenue: number }>(
-    `select count(*)::int as calls,
-            count(*) filter (where after_hours)::int as after_hours,
-            count(*) filter (where booked)::int as booked,
-            coalesce(sum(ticket_value) filter (where booked), 0)::float as revenue
-       from demo_calls where tenant_id = $1 and started_at > now() - interval '7 days'`,
-    [t.id],
-  );
+  const stats = await weekStats(t.id);
   const sent =
     kind === "day3"
       ? await sendEmail({ to: owner.email, subject: "How did the first calls go?", template: "lifecycle_day3", tenantId: t.id, react: createElement(FirstCallCheckIn, { firstName: owner.firstName, calls: stats.calls }) })
-      : await sendEmail({ to: owner.email, subject: `Your first week: ${stats.calls} calls, ${stats.booked} booked`, template: "lifecycle_day7", tenantId: t.id, react: createElement(WeeklyReport, { firstName: owner.firstName, calls: stats.calls, afterHours: stats.after_hours, booked: stats.booked, revenue: Math.round(stats.revenue) }) });
+      : await sendEmail({ to: owner.email, subject: `Your first week: ${stats.lines.map((l) => `${l.value} ${l.label.toLowerCase()}`).slice(0, 2).join(", ")}`, template: "lifecycle_day7", tenantId: t.id, react: createElement(WeeklyReport, { firstName: owner.firstName, stats }) });
   if (sent.status === "failed") throw new Error(sent.error ?? "send failed");
   return `${sent.provider}: ${kind} ${sent.status}`;
 }

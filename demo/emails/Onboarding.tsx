@@ -1,19 +1,20 @@
 /**
  * The emails around onboarding: welcome on first sign-in, "finish your
  * setup" nudges while it is unfinished, "your number is live", the day-3
- * check-in and the day-7 first report.
+ * check-in and the day-7 first report. Shared across the three products;
+ * the words that differ come from lib/product.ts and lib/stats.ts.
  */
 import { Button, Section, Text } from "@react-email/components";
 import Layout, { styles } from "./Layout";
 import { PRODUCT } from "@/lib/product";
+import type { WeekStats } from "@/lib/stats";
 
 export function Welcome({ firstName, businessName }: { firstName: string; businessName: string }) {
   return (
     <Layout preview={`Your ${PRODUCT.name} workspace for ${businessName} is ready to set up.`} title={`Welcome, ${firstName}`}>
       <Text style={styles.p}>
-        Your {PRODUCT.name} workspace for {businessName} is open. Setup takes about ten minutes: your hours, the area you
-        cover, your team, how the assistant should answer, and a test call at the end. You can stop at any step and come
-        back; it saves as you go.
+        Your {PRODUCT.name} workspace for {businessName} is open. Setup takes about ten minutes: your hours, your team, how
+        the assistant should answer, and a test call at the end. You can stop at any step and come back; it saves as you go.
       </Text>
       <Section style={{ margin: "8px 0 20px" }}>
         <Button href={`${PRODUCT.siteUrl}/app/setup`} style={styles.button}>
@@ -48,7 +49,7 @@ export function NumberLive({ firstName, number, forwarding }: { firstName: strin
     <Layout preview={`Your assistant answers on ${number}.`} title="Your number is live">
       <Text style={styles.p}>
         Hi {firstName}. Your assistant now answers on <strong>{number}</strong>. Call it from your mobile to hear it, then
-        forward your business line to it whenever you are ready.
+        forward your line to it whenever you are ready.
       </Text>
       {forwarding.length ? (
         <>
@@ -90,19 +91,17 @@ export function FirstCallCheckIn({ firstName, calls }: { firstName: string; call
   );
 }
 
-export function WeeklyReport({ firstName, calls, afterHours, booked, revenue }: { firstName: string; calls: number; afterHours: number; booked: number; revenue: number }) {
+export function WeeklyReport({ firstName, stats }: { firstName: string; stats: WeekStats }) {
   return (
-    <Layout preview={`${calls} calls, ${booked} booked.`} title={`Your first week with ${PRODUCT.name}`}>
-      <Text style={styles.p}>Hi {firstName}. Here is the week in four numbers.</Text>
+    <Layout preview={stats.lines.map((l) => `${l.value} ${l.label.toLowerCase()}`).join(", ")} title={`Your first week with ${PRODUCT.name}`}>
+      <Text style={styles.p}>Hi {firstName}. Here is the week in numbers.</Text>
       <Section>
-        <Text style={styles.label}>Calls answered</Text>
-        <Text style={styles.value}>{calls}</Text>
-        <Text style={styles.label}>Of which after hours</Text>
-        <Text style={styles.value}>{afterHours}</Text>
-        <Text style={styles.label}>Jobs booked</Text>
-        <Text style={styles.value}>{booked}</Text>
-        <Text style={styles.label}>Revenue booked, at your typical ticket values</Text>
-        <Text style={styles.value}>${revenue.toLocaleString()}</Text>
+        {stats.lines.map((l) => (
+          <div key={l.label}>
+            <Text style={styles.label}>{l.label}</Text>
+            <Text style={styles.value}>{l.value}</Text>
+          </div>
+        ))}
       </Section>
       <Section style={{ margin: "20px 0 0" }}>
         <Button href={`${PRODUCT.siteUrl}/app`} style={styles.button}>

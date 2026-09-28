@@ -352,3 +352,46 @@ export function PhoneForm({ tenant, mode }: { tenant: Tenant; mode: Mode }) {
     </div>
   );
 }
+
+/** The go-live summary, one row per thing the assistant now knows. */
+export function SummaryRows({ tenant, c }: { tenant: Tenant; c: ReturnType<typeof configOf> }) {
+  return (
+    <>
+      <tr>
+        <td>Business</td>
+        <td>{tenant.name}, {c.basics.timezone.replace("America/", "").replace(/_/g, " ")}</td>
+      </tr>
+      <tr>
+        <td>Number it gives out</td>
+        <td>{c.basics.callbackNumber}</td>
+      </tr>
+      <tr>
+        <td>After hours</td>
+        <td>{c.basics.afterHoursPolicy === "book" ? "Books emergencies and pages the on-call technician" : "Takes a message for the morning"}</td>
+      </tr>
+      <tr>
+        <td>Service area</td>
+        <td>{[...new Set(c.serviceArea.map((s) => s.town))].join(", ")}</td>
+      </tr>
+      <tr>
+        <td>Services</td>
+        <td>{c.services.map((s) => s.name).join(", ")}</td>
+      </tr>
+      <tr>
+        <td>Team</td>
+        <td>{c.technicians.map((t) => t.name).join(", ")}</td>
+      </tr>
+      <tr>
+        <td>Transfer to a person</td>
+        <td>{c.behaviour.transferNumber || "not set; the assistant takes a message instead"}</td>
+      </tr>
+    </>
+  );
+}
+
+export const STAFF_NOTES = [
+  "Calls the assistant books show on the board marked \"by the assistant\", with the caller's own words as the note.",
+  "When it transfers, it says one line about the caller first, so nobody has to ask twice.",
+  "Messages it takes are in the callback list; someone should work that list each morning.",
+  "If it gets something wrong, open the call, find the step, and change the rule in Settings. It follows the new rule on the next call.",
+];

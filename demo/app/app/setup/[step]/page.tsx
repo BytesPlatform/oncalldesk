@@ -3,8 +3,9 @@ import Notice from "@/app/admin/Notice";
 import { requireTenant } from "@/lib/auth";
 import { stepById, stepIndex } from "@/lib/onboarding";
 import { forwardingInstructions } from "@/lib/provision";
+import type { Tenant } from "@/lib/tenancy";
 import { ONBOARDING_STEPS, configOf, readiness, type StepId } from "@/lib/tenant-config";
-import { AccountForm, BehaviourForm, BusinessForm, PhoneForm, ServicesForm, SoftwareForm } from "../forms";
+import { AccountForm, BehaviourForm, BusinessForm, PhoneForm, ServicesForm, SoftwareForm, STAFF_NOTES, SummaryRows } from "../forms";
 import TestCall from "../TestCall";
 import { continueFromTestAction, goLiveAction } from "../actions";
 
@@ -57,12 +58,12 @@ export default async function StepPage({ params, searchParams }: { params: Promi
         )
       ) : null}
 
-      {def.id === "live" ? <GoLive tenantName={ctx.tenant.name} c={c} /> : null}
+      {def.id === "live" ? <GoLive tenant={ctx.tenant} c={c} /> : null}
     </>
   );
 }
 
-function GoLive({ tenantName, c }: { tenantName: string; c: ReturnType<typeof configOf> }) {
+function GoLive({ tenant, c }: { tenant: Tenant; c: ReturnType<typeof configOf> }) {
   const ready = readiness(c);
   const ticks = Object.values(c.onboarding.checklist).filter(Boolean).length;
   const number = c.phone.number;
@@ -72,34 +73,7 @@ function GoLive({ tenantName, c }: { tenantName: string; c: ReturnType<typeof co
         <h2 className="admin-title-sm">Summary</h2>
         <table className="admin-table">
           <tbody>
-            <tr>
-              <td>Business</td>
-              <td>{tenantName}, {c.basics.timezone.replace("America/", "").replace(/_/g, " ")}</td>
-            </tr>
-            <tr>
-              <td>Number it gives out</td>
-              <td>{c.basics.callbackNumber}</td>
-            </tr>
-            <tr>
-              <td>After hours</td>
-              <td>{c.basics.afterHoursPolicy === "book" ? "Books emergencies and pages the on-call technician" : "Takes a message for the morning"}</td>
-            </tr>
-            <tr>
-              <td>Service area</td>
-              <td>{[...new Set(c.serviceArea.map((s) => s.town))].join(", ")}</td>
-            </tr>
-            <tr>
-              <td>Services</td>
-              <td>{c.services.map((s) => s.name).join(", ")}</td>
-            </tr>
-            <tr>
-              <td>Team</td>
-              <td>{c.technicians.map((t) => t.name).join(", ")}</td>
-            </tr>
-            <tr>
-              <td>Transfer to a person</td>
-              <td>{c.behaviour.transferNumber || "not set; the assistant takes a message instead"}</td>
-            </tr>
+            <SummaryRows tenant={tenant} c={c} />
             <tr>
               <td>Assistant</td>
               <td>{c.agent.agentId ? `published${c.agent.publishedAt ? " " + new Date(c.agent.publishedAt).toLocaleDateString("en-US") : ""}` : "not published"}</td>
@@ -110,7 +84,7 @@ function GoLive({ tenantName, c }: { tenantName: string; c: ReturnType<typeof co
             </tr>
             <tr>
               <td>Test call</td>
-              <td>{ticks ? `${ticks} of 8 checks passed` : "not made yet"}</td>
+              <td>{ticks ? `${ticks} checks passed` : "not made yet"}</td>
             </tr>
           </tbody>
         </table>
@@ -119,10 +93,9 @@ function GoLive({ tenantName, c }: { tenantName: string; c: ReturnType<typeof co
       <section className="admin-section">
         <h2 className="admin-title-sm">What to tell your staff</h2>
         <ul className="s-list setup-list">
-          <li>Calls the assistant books show on the board marked "by the assistant", with the caller's own words as the note.</li>
-          <li>When it transfers, it says one line about the caller first, so nobody has to ask twice.</li>
-          <li>Messages it takes are in the callback list; someone should work that list each morning.</li>
-          <li>If it gets something wrong, open the call, find the step, and change the rule in Settings. It follows the new rule on the next call.</li>
+          {STAFF_NOTES.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
         </ul>
       </section>
 
