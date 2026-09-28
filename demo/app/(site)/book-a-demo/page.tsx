@@ -4,7 +4,7 @@ import DemoForm from "../components/DemoForm";
 
 export const metadata: Metadata = {
   title: `Book a demo | ${PRODUCT.name}`,
-  description: `Twenty minutes on your own service area and hours. Leave your details and a person from ${PRODUCT.name} calls you within one business day.`,
+  description: `Leave your details and a person from ${PRODUCT.name} calls you within one business day to set up a twenty-minute demo on your own setup.`,
   alternates: { canonical: "/book-a-demo" },
 };
 
@@ -15,13 +15,10 @@ export default function BookADemo() {
         <div className="s-grid-2">
           <div>
             <p className="s-kicker">Book a demo</p>
-            <h1 className="s-h2">Twenty minutes, on your own service area</h1>
+            <h1 className="s-h2">{PRODUCT.bookTitle}</h1>
+            <p className="s-p">{PRODUCT.bookLead}</p>
             <p className="s-p">
-              Leave your details and someone from our team calls you within one business day to set a time. On the
-              call we configure the assistant with your towns, hours and on-call rota, and you phone it yourself.
-            </p>
-            <p className="s-p">
-              Prefer to hear it first? The <a href="/#hear-it">recorded calls</a> are on the home page and the{" "}
+              Prefer to hear it first? The <a href="/#hear-it">recorded call</a> is on the home page and the{" "}
               <a href="/demo">live demo</a> is open now.
             </p>
             <p className="s-small">
@@ -30,7 +27,7 @@ export default function BookADemo() {
             </p>
           </div>
           <div className="s-card">
-            <DemoForm consentText={PRODUCT.consentText} productName={PRODUCT.name} />
+            <DemoForm consentText={PRODUCT.consentText} productName={PRODUCT.name} example={PRODUCT.formExample} />
           </div>
         </div>
       </div>

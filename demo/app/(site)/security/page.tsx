@@ -3,7 +3,7 @@ import { PRODUCT } from "@/lib/product";
 
 export const metadata: Metadata = {
   title: `Security | ${PRODUCT.name}`,
-  description: `How ${PRODUCT.name} protects your calls and your customers' details: signed webhooks, encryption in transit and at rest, isolated workspaces, retention you control.`,
+  description: `How ${PRODUCT.name} protects your calls and your callers' details: signed webhooks, encryption in transit and at rest, isolated workspaces, retention you control${PRODUCT.baa ? ", and a HIPAA business associate agreement" : ""}.`,
   alternates: { canonical: "/security" },
 };
 
@@ -16,7 +16,7 @@ export default function Security() {
 
         <h2 className="s-h2">Where your data lives</h2>
         <p>
-          Your calls, bookings and customer records are stored in a managed Postgres database in the United States,
+          Your calls, bookings and caller records are stored in a managed Postgres database in the United States,
           encrypted at rest, and reached only over TLS. Every record is tagged with your workspace and every query is
           scoped to it, so one customer's data cannot appear in another's dashboard.
         </p>
@@ -34,11 +34,24 @@ export default function Security() {
           then deleted.
         </p>
 
-        <h2 className="s-h2">What the assistant is told</h2>
-        <p>
-          Only what it needs for the call: your hours, your service area, your technicians' first names, the customer's
-          first name and the booking. It never sees payment details, and it never quotes prices.
-        </p>
+        {PRODUCT.securityExtra.map((s) => (
+          <div key={s.title}>
+            <h2 className="s-h2">{s.title}</h2>
+            <p>{s.body}</p>
+          </div>
+        ))}
+
+        {PRODUCT.baa ? (
+          <>
+            <h2 className="s-h2">HIPAA</h2>
+            <p>
+              {PRODUCT.name} is built to be a business associate: a signed business associate agreement is part of every
+              plan, every access to a patient record is written to an audit log with who, when and why, the assistant
+              handles scheduling only and refers anything clinical to your team, and recordings are stored with the same
+              controls as the rest of your data.
+            </p>
+          </>
+        ) : null}
 
         <h2 className="s-h2">Recording disclosure</h2>
         <p>
@@ -48,7 +61,7 @@ export default function Security() {
 
         <h2 className="s-h2">Texts</h2>
         <p>
-          Customers are only texted after they agree on the call, and every text carries the STOP instruction. Consent is
+          Callers are only texted after they agree on the call, and every text carries the STOP instruction. Consent is
           recorded with the words that were said and the time.
         </p>
 

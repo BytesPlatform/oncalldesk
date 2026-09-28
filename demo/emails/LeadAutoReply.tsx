@@ -8,7 +8,7 @@ export default function LeadAutoReply({ firstName }: { firstName: string }) {
     <Layout preview={`Thanks ${firstName}, we will call you within one business day.`} title={`Thanks, ${firstName}. We will call you shortly.`}>
       <Text style={styles.p}>
         Your demo request reached a person. Someone from our team will call the number you gave within one business day to
-        walk through {PRODUCT.name} and answer questions about your {PRODUCT.industry} business.
+        walk through {PRODUCT.name} and answer your questions.
       </Text>
       <Text style={styles.p}>In the meantime, here is what a call sounds like, and the live demo you can try yourself.</Text>
       <Section style={{ margin: "8px 0 20px" }}>

@@ -31,11 +31,9 @@ export default function Privacy() {
 
         <h2 className="s-h2">If you call a business that uses {PRODUCT.name}</h2>
         <p>
-          The business you called is responsible for the call; we process it on their behalf. The assistant records the
-          call after telling you so, transcribes it, and stores your name, phone number, address and the reason for the
-          call so the business can do the work you asked for. Recordings are deleted after the period the business
-          chooses, ninety days by default. To have your details corrected or removed, contact the business; we act on
-          their instruction.
+          The business you called is responsible for the call; we process it on their behalf. {PRODUCT.privacyCaller}{" "}
+          Recordings are deleted after the period the business chooses, ninety days by default. To have your details
+          corrected or removed, contact the business; we act on their instruction.
         </p>
 
         <h2 className="s-h2">If you are a customer</h2>
@@ -43,6 +41,7 @@ export default function Privacy() {
           We store your account details, your configuration and every call handled for you, for as long as you are a
           customer and thirty days after. We use them to provide the service, to invoice you, and to tell you about the
           service itself. We do not sell data and we do not use your calls to train anything.
+          {PRODUCT.baa ? " Where the data is protected health information, our business associate agreement with you governs it." : ""}
         </p>
 
         <h2 className="s-h2">Who else sees data</h2>

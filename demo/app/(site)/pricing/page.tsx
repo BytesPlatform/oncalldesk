@@ -15,10 +15,7 @@ export default function PricingPage() {
         <div className="s-wrap">
           <p className="s-kicker">Pricing</p>
           <h1 className="s-h2">Priced by the minute it talks, not the seat</h1>
-          <p className="s-lead">
-            A typical service call lasts two to three minutes. Three hundred minutes is about a hundred calls a month;
-            a thousand is a busy shop in heating season.
-          </p>
+          <p className="s-lead">{PRODUCT.pricingLead}</p>
           <Pricing />
         </div>
       </section>
@@ -26,11 +23,9 @@ export default function PricingPage() {
         <div className="s-wrap s-prose">
           <h2 className="s-h2">What every plan includes</h2>
           <ul>
-            <li>A dedicated number, or forwarding from yours, with after-hours or overflow rules.</li>
-            <li>The dashboard, the call log with what happened on every call, and the daily summary email.</li>
-            <li>Emergency paging to the on-call technician, with your own definition of emergency.</li>
-            <li>A callback list for out-of-area and after-hours non-emergencies, worked in the morning.</li>
-            <li>Onboarding with a person, and a test call before your number is forwarded.</li>
+            {PRODUCT.planIncludes.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
           </ul>
           <h2 className="s-h2">How minutes are counted</h2>
           <p>

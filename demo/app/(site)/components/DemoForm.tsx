@@ -8,7 +8,15 @@
 
 import { useState } from "react";
 
-export default function DemoForm({ consentText, productName }: { consentText: string; productName: string }) {
+export default function DemoForm({
+  consentText,
+  productName,
+  example,
+}: {
+  consentText: string;
+  productName: string;
+  example: { name: string; business: string; message: string };
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -66,11 +74,11 @@ export default function DemoForm({ consentText, productName }: { consentText: st
       <div className="s-form-row">
         <label className="s-field">
           Your name
-          <input name="name" required autoComplete="name" placeholder="Dana Whitlock" />
+          <input name="name" required autoComplete="name" placeholder={example.name} />
         </label>
         <label className="s-field">
           Business
-          <input name="business" autoComplete="organization" placeholder="Northline Heating and Cooling" />
+          <input name="business" autoComplete="organization" placeholder={example.business} />
         </label>
       </div>
       <div className="s-form-row">
@@ -85,7 +93,7 @@ export default function DemoForm({ consentText, productName }: { consentText: st
       </div>
       <label className="s-field">
         What do you want it to do?
-        <textarea name="message" placeholder="Answer after-hours calls and book emergencies without waking me up unless it's real." />
+        <textarea name="message" placeholder={example.message} />
       </label>
       <label className="s-hp" aria-hidden="true">
         Website
