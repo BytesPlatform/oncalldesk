@@ -1,4 +1,6 @@
-# Northline Heating and Cooling: AI phone receptionist demo
+# OnCallDesk, the app
+
+This folder is the OnCallDesk product: the marketing site, the public demo, the customer workspace and our console. The repository README one level up describes the product; this file is the operator's manual for the assistant and the demo. The demo answers as Northline Heating and Cooling, a fictional contractor.
 
 A working after hours service line for an HVAC contractor. A caller rings, says
 their furnace is dead, and by the time they hang up there is a job on the
@@ -86,7 +88,7 @@ This is the whole demo. Jobber and Twilio are upgrades, not requirements.
    second run updates rather than duplicating.
 
    ```
-   RETELL_API_KEY=key_... DEMO_HOST=hvac-demo.onrender.com npx tsx retell/push-demo-config.ts
+   RETELL_API_KEY=key_... DEMO_HOST=oncalldesk.vercel.app npx tsx retell/push-demo-config.ts
    ```
 
    Add `--dry-run` to see what it would send. It prints the agent id at the end.
