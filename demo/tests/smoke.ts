@@ -20,6 +20,8 @@ import { DEMO_TENANT_ID, addMembership, createTenant, getTenant, membershipsForU
 import { runTool } from "../lib/tools";
 import { createLead, getLead, setLeadStatus } from "../lib/leads";
 import { runDueJobs } from "../lib/jobs";
+import { configOf, defaultConfig, isAfterHoursFor, mergeConfig, readiness } from "../lib/tenant-config";
+import { renderFlow, renderGlobalPrompt } from "../lib/provision";
 import { jobber } from "../lib/jobber";
 import type { ToolRequest } from "../lib/retell";
 
@@ -43,6 +45,40 @@ async function main() {
   await withTenant(demo, scenes);
   await isolation();
   await landingSite();
+  await onboardingConfig();
+}
+
+/** The tenant configuration: defaults, merge, hours in a time zone, and what the agent is rendered from. */
+async function onboardingConfig() {
+  heading("onboarding: configuration and agent rendering");
+  const acme = await createTenant({ name: "Acme Heating", mainNumber: "(847) 555-0100" });
+  const base = configOf(acme);
+  if (base.technicians.length !== 4 || base.serviceArea.length < 10) throw new Error("a new tenant must start on the product defaults");
+  if (readiness(base).ok !== true) throw new Error("the defaults must be publishable as they are");
+
+  const patched = mergeConfig(defaultConfig(), {
+    basics: { timezone: "America/New_York", hours: { mon: { open: "09:00", close: "17:00" }, sun: null }, holidays: ["2026-12-25"] },
+    serviceArea: [{ zip: "10001", town: "Manhattan" }],
+    behaviour: { greeting: "Thanks for calling Acme. This call is recorded. How can I help?" },
+  });
+  if (patched.basics.hours.tue?.open !== "07:00") throw new Error("merging must keep untouched days from the defaults");
+  if (patched.serviceArea.length !== 1) throw new Error("arrays are replaced whole");
+  const saved = process.env.DEMO_FORCE_AFTER_HOURS; delete process.env.DEMO_FORCE_AFTER_HOURS;
+  // 2026-09-28 is a Monday. 14:00 UTC is 10:00 in New York: open. 23:00 UTC is 19:00: after hours.
+  if (isAfterHoursFor(patched, new Date("2026-09-28T14:00:00Z"))) throw new Error("10 am on a Monday in New York must be office hours");
+  if (!isAfterHoursFor(patched, new Date("2026-09-28T23:00:00Z"))) throw new Error("7 pm in New York must be after hours");
+  if (!isAfterHoursFor(patched, new Date("2026-12-25T15:00:00Z"))) throw new Error("a holiday must count as closed");
+  if (!isAfterHoursFor(patched, new Date("2026-10-04T15:00:00Z"))) throw new Error("a closed Sunday must count as after hours");
+  process.env.DEMO_FORCE_AFTER_HOURS = saved;
+
+  const flow = renderFlow(acme, patched) as { nodes: { id: string; instruction?: { text: string } }[]; default_dynamic_variables: Record<string, string>; global_prompt: string; tools: { url?: string }[] };
+  const opening = flow.nodes.find((n) => n.id === "n_opening");
+  if (opening?.instruction?.text !== patched.behaviour.greeting) throw new Error("the opening line must be the tenant's greeting");
+  if (flow.default_dynamic_variables.company_name !== "Acme Heating") throw new Error("dynamic variables must carry the tenant");
+  const prompt = renderGlobalPrompt(acme, patched);
+  if (!prompt.includes("Manhattan 10001") || !prompt.includes("Monday, 9 in the morning until 5 in the afternoon") || prompt.includes("northwest suburbs")) throw new Error("the prompt must carry the tenant's facts and none of the demo's");
+  if (flow.tools.some((t) => t.url && t.url.includes("<DEMO_HOST>"))) throw new Error("tool urls must point at the site");
+  console.log("config merge, hours and rendering hold");
 }
 
 /**

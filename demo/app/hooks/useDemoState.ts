@@ -146,6 +146,8 @@ export interface DemoMode {
   afterHours: boolean;
   onCall: string;
   phoneNumber: string;
+  /** False until the workspace has finished onboarding. Always true for the demo. */
+  onboarded?: boolean;
 }
 
 interface Cursors {

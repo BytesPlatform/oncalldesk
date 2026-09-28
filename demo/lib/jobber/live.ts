@@ -22,9 +22,11 @@ import {
   ARRIVAL_WINDOW_MINUTES,
   DAY_END_HOUR,
   DAY_START_HOUR,
-  TECHNICIANS,
-  jobTypeById,
 } from "../config";
+import { cfg, jobTypeByIdFor } from "../tenant-config";
+
+const jobTypeById = (id: string) => jobTypeByIdFor(cfg(), id);
+const TECHNICIANS = () => cfg().technicians;
 import { MockJobber, decodeSlot, encodeSlot, speakWindow } from "./mock";
 import type {
   CreateJobInput,
@@ -302,7 +304,7 @@ export class LiveJobber implements JobberGateway {
 
     // TODO map Jobber user ids onto TECHNICIANS once the real account exists.
     // Until then the local roster supplies skills and display names.
-    const candidates = TECHNICIANS.filter((t) => args.skill === "any" || t.skills.includes(args.skill));
+    const candidates = TECHNICIANS().filter((t) => args.skill === "any" || t.skills.includes(args.skill));
     const slots: OpenSlot[] = [];
 
     for (let day = 0; day < args.days && slots.length < 3; day++) {

@@ -4,7 +4,8 @@
  * the server. With ?scope=app the agent is the signed-in workspace's own.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { SERVICE_AREA, TECHNICIANS, COMPANY } from "@/lib/config";
+import { COMPANY } from "@/lib/config";
+import { configOf } from "@/lib/tenant-config";
 import { connectionSource, databaseMode, databaseWarning } from "@/lib/db";
 import { jobber, jobberConfigured } from "@/lib/jobber";
 import { tenantForRequest } from "@/lib/scope";
@@ -18,6 +19,7 @@ export async function GET(request: NextRequest) {
   const resolved = await tenantForRequest(request);
   if (resolved instanceof NextResponse) return resolved;
   const { tenant } = resolved;
+  const c = configOf(tenant);
 
   const agentId = tenant.retell_agent_id ?? (tenant.id === DEMO_TENANT_ID ? process.env.NEXT_PUBLIC_RETELL_AGENT_ID ?? "" : "");
   const phoneNumber = tenant.phone_number ?? (tenant.id === DEMO_TENANT_ID ? process.env.NEXT_PUBLIC_DEMO_PHONE_NUMBER ?? "" : "");
@@ -28,11 +30,11 @@ export async function GET(request: NextRequest) {
       name: tenant.name,
       shortName: tenant.short_name,
       tagline: tenant.tagline ?? COMPANY.tagline,
-      mainNumber: tenant.main_number ?? COMPANY.mainNumber,
+      mainNumber: c.basics.callbackNumber || tenant.main_number || COMPANY.mainNumber,
     },
     tenant: { id: tenant.id, status: tenant.status, plan: tenant.plan },
-    technicians: TECHNICIANS.map((t) => ({ id: t.id, firstName: t.firstName, name: t.name, tone: t.tone })),
-    serviceArea: SERVICE_AREA,
+    technicians: c.technicians.map((t) => ({ id: t.id, firstName: t.firstName, name: t.name, tone: t.tone })),
+    serviceArea: c.serviceArea,
     retell: {
       publicKey: process.env.NEXT_PUBLIC_RETELL_PUBLIC_KEY ?? "",
       agentId,

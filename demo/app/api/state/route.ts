@@ -12,16 +12,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { databaseWarning, q } from "@/lib/db";
-import {
-  BUSINESS_HOURS,
-  DAY_END_HOUR,
-  DAY_START_HOUR,
-  JOB_TYPES,
-  SERVICE_AREA,
-  TECHNICIANS,
-  isAfterHours,
-  onCallTechnician,
-} from "@/lib/config";
+import { DAY_END_HOUR, DAY_START_HOUR } from "@/lib/config";
+import { cfg, isAfterHoursFor, onCallTechnicianFor, onboardingComplete } from "@/lib/tenant-config";
 import { jobber } from "@/lib/jobber";
 import { tenantForRequest } from "@/lib/scope";
 import { smsMode } from "@/lib/sms";
@@ -59,6 +51,9 @@ async function readState(request: NextRequest, tenant: Tenant) {
   const sinceCallbacks = num(params.get("callbacks"));
   const dayOffset = num(params.get("day"), 0);
   const t = tenantId();
+  const c = cfg();
+  const afterHours = isAfterHoursFor(c);
+  const onCall = onCallTechnicianFor(c);
 
   const from = new Date();
   from.setHours(0, 0, 0, 0);
@@ -116,8 +111,9 @@ async function readState(request: NextRequest, tenant: Tenant) {
       // Shown in the header so nobody has to guess what is live.
       jobber: jobber().mode,
       sms: smsMode(),
-      afterHours: isAfterHours(),
-      onCall: onCallTechnician().firstName,
+      afterHours,
+      onCall: onCall.firstName,
+      onboarded: onboardingComplete(c),
       phoneNumber: tenant.phone_number ?? (tenant.id === "demo" ? process.env.NEXT_PUBLIC_DEMO_PHONE_NUMBER ?? "" : ""),
     },
     board: {
@@ -125,16 +121,16 @@ async function readState(request: NextRequest, tenant: Tenant) {
       date: from.toISOString(),
       startHour: DAY_START_HOUR,
       endHour: DAY_END_HOUR,
-      hours: BUSINESS_HOURS,
-      technicians: TECHNICIANS.map((tech) => ({
+      hours: c.basics.hours,
+      technicians: c.technicians.map((tech) => ({
         id: tech.id,
         name: tech.name,
         firstName: tech.firstName,
         tone: tech.tone,
-        onCall: onCallTechnician().id === tech.id,
+        onCall: onCall.id === tech.id,
       })),
-      jobTypes: JOB_TYPES.map((j) => ({ id: j.id, name: j.name, minutes: j.minutes, urgency: j.urgency })),
-      serviceArea: SERVICE_AREA,
+      jobTypes: c.services.map((j) => ({ id: j.id, name: j.name, minutes: j.minutes, urgency: j.urgency })),
+      serviceArea: c.serviceArea,
     },
     visits,
     pipeline,

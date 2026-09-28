@@ -12,16 +12,13 @@
 
 import { q } from "../db";
 import { tenantId } from "../tenancy";
-import {
-  ARRIVAL_WINDOW_MINUTES,
-  DAY_END_HOUR,
-  DAY_START_HOUR,
-  TECHNICIANS,
-  isAfterHours,
-  jobTypeById,
-  onCallTechnician,
-  technicianById,
-} from "../config";
+import { ARRIVAL_WINDOW_MINUTES, DAY_END_HOUR, DAY_START_HOUR } from "../config";
+import { cfg, isAfterHoursFor, jobTypeByIdFor, onCallTechnicianFor, technicianByIdFor } from "../tenant-config";
+
+const isAfterHours = () => isAfterHoursFor(cfg());
+const jobTypeById = (id: string) => jobTypeByIdFor(cfg(), id);
+const onCallTechnician = () => onCallTechnicianFor(cfg());
+const technicianById = (id: string) => technicianByIdFor(cfg(), id);
 import type {
   CreateJobInput,
   CreateJobResult,
@@ -219,10 +216,11 @@ export class MockJobber implements JobberGateway {
     const emergency = args.urgency === "emergency";
     const latestHour = emergency ? DAY_END_HOUR + 3 : DAY_END_HOUR;
 
-    let candidates = TECHNICIANS.filter(
+    const technicians = cfg().technicians;
+    let candidates = technicians.filter(
       (t) => args.skill === "any" || t.skills.includes(args.skill),
     );
-    if (!candidates.length) candidates = [...TECHNICIANS];
+    if (!candidates.length) candidates = [...technicians];
 
     // Out of hours an emergency goes to whoever is carrying the pager. The
     // rest of the crew is at home, so offering their names would be a lie and

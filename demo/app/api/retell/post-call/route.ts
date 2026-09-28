@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { closeCall, logCallEvent, logPipeline, touchCall } from "@/lib/ops";
 import { signatureRequired, verifyRetellSignature } from "@/lib/retell";
 import { tenantByAgentId, withTenant } from "@/lib/tenancy";
-import { isAfterHours } from "@/lib/config";
+import { cfg, isAfterHoursFor } from "@/lib/tenant-config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     await touchCall(call.call_id, {
       channel: call.from_number ? "phone" : "web",
       fromNumber: call.from_number,
-      afterHours: isAfterHours(),
+      afterHours: isAfterHoursFor(cfg()),
     });
 
     if (payload.event === "call_started") {

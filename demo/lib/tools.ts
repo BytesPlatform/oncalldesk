@@ -19,13 +19,16 @@ import {
   QUALIFYING_QUESTIONS,
   URGENCY_LABEL,
   type Urgency,
-  inServiceArea,
-  isAfterHours,
-  jobTypeById,
-  onCallTechnician,
-  technicianById,
   triage,
 } from "./config";
+import { cfg, inServiceAreaFor, isAfterHoursFor, jobTypeByIdFor, onCallTechnicianFor, technicianByIdFor } from "./tenant-config";
+
+// The tenant's own configuration, read at call time. The demo tenant runs on the defaults in config.ts.
+const inServiceArea = (zip: string) => inServiceAreaFor(cfg(), zip);
+const isAfterHours = () => isAfterHoursFor(cfg());
+const jobTypeById = (id: string) => jobTypeByIdFor(cfg(), id);
+const onCallTechnician = () => onCallTechnicianFor(cfg());
+const technicianById = (id: string) => technicianByIdFor(cfg(), id);
 import { q } from "./db";
 import { decodeSlot, jobber, speakWindow } from "./jobber";
 import { logCallEvent, logPipeline, markBooked, setCallUrgency, touchCall } from "./ops";
