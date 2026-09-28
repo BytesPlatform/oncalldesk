@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: TITLE,
   description: DESCRIPTION,
-  applicationName: "Northline Heating and Cooling AI service line",
+  applicationName: "OnCallDesk",
   keywords: [
     "AI receptionist for HVAC",
     "HVAC answering service",
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     url: SITE_URL,
-    siteName: "AI Receptionist for HVAC demo",
+    siteName: "OnCallDesk",
     title: TITLE,
     description: DESCRIPTION,
     locale: "en_US",
@@ -58,12 +58,12 @@ export const viewport: Viewport = {
 const STRUCTURED_DATA = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  name: "AI Receptionist for HVAC",
+  name: "OnCallDesk",
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web",
   url: SITE_URL,
   description: DESCRIPTION,
-  offers: { "@type": "Offer", price: "0", priceCurrency: "USD", description: "Live demo" },
+  offers: { "@type": "Offer", price: "149", priceCurrency: "USD", description: "Starter plan, monthly" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
