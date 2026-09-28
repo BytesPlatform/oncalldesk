@@ -14,6 +14,8 @@ export interface Step {
 export const PRODUCT = {
   name: "OnCallDesk",
   company: "Bytes Platform",
+  /** One accent per product, used by the site and the emails. */
+  accent: { main: "#ee4f1c", deep: "#c93c10", gradientFrom: "#ff7a4d", gradientTo: "#ee3d63" },
   /** One line, the result. */
   headline: "Every no-heat call booked, even at 2 a.m.",
   subhead:
