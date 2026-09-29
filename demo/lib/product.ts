@@ -18,6 +18,8 @@ export const PRODUCT = {
   accent: { main: "#ee4f1c", deep: "#c93c10", gradientFrom: "#ff7a4d", gradientTo: "#ee3d63" },
   /** One line, the result. */
   headline: "Every no-heat call booked, even at 2 a.m.",
+  /** The same line split for the hero: the second half carries the accent. */
+  headlineParts: { lead: "Every no-heat call booked,", accent: "even at 2 a.m." },
   subhead:
     "An AI receptionist for heating, cooling and home services. It answers every call, triages the emergency, books the job into your schedule and pages your on-call tech. Your customers hear a calm voice; you see the booking.",
   industry: "HVAC and home services",
