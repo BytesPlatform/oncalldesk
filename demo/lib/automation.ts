@@ -69,6 +69,46 @@ export async function ensureTenantSchedules(t: Tenant): Promise<void> {
 export async function ensureAutomationSchedules(): Promise<void> {
   const tenants = await q<Tenant>(`select * from tenants where status = 'active' and id <> 'demo'`);
   for (const t of tenants) await ensureTenantSchedules(t);
+  // One platform-wide retention pass a day, around 04:00 UTC.
+  const [queued] = await q<{ n: number }>(
+    `select count(*)::int as n from jobs where kind = 'retention' and status = 'queued'`,
+  );
+  if ((queued?.n ?? 0) === 0) {
+    await enqueue("retention", {}, nextLocalTime("Etc/UTC", 4));
+  }
+}
+
+/* -------------------------------------------------------------- retention */
+
+/** How long the operational trails live. Events keep half a year; the
+ *  words and audio of a call go sooner. */
+const EVENT_RETENTION_DAYS = 180;
+const MEDIA_RETENTION_DAYS = 90;
+
+async function runRetention(): Promise<string> {
+  const notes: string[] = [];
+  const trails: [table: string, timeColumn: string][] = [
+    ["pipeline_events", "occurred_at"],
+    ["call_events", "occurred_at"],
+    ["outbound_messages", "created_at"],
+  ];
+  for (const [table, timeColumn] of trails) {
+    const rows = await q<{ id: number }>(
+      `delete from ${table} where ${timeColumn} < now() - make_interval(days => $1) returning id`,
+      [EVENT_RETENTION_DAYS],
+    );
+    if (rows.length) notes.push(`${table}: ${rows.length}`);
+  }
+  const media = await q<{ call_id: string }>(
+    `update demo_calls set transcript = null, recording_url = null
+      where started_at < now() - make_interval(days => $1) and (transcript is not null or recording_url is not null)
+      returning call_id`,
+    [MEDIA_RETENTION_DAYS],
+  );
+  if (media.length) notes.push(`call media: ${media.length}`);
+  const pruned = await q<{ id: number }>(`delete from rate_limits where occurred_at < now() - interval '2 days' returning id`);
+  if (pruned.length) notes.push(`rate_limits: ${pruned.length}`);
+  return notes.length ? `purged ${notes.join(", ")}` : "nothing old enough";
 }
 
 /* ------------------------------------------------------------------ jobs */
@@ -187,3 +227,8 @@ async function runVisitReminder(job: Job): Promise<string> {
 registerJob("daily_summary", runDailySummary);
 registerJob("weekly_report", runWeeklyReport);
 registerJob("visit_reminder", runVisitReminder);
+registerJob("retention", async () => {
+  const note = await runRetention();
+  await enqueue("retention", {}, nextLocalTime("Etc/UTC", 4));
+  return note;
+});

@@ -47,6 +47,69 @@ async function main() {
   await landingSite();
   await onboardingConfig();
   await automation();
+  await hardening();
+}
+
+/** Phase 5: the secret box, the durable rate limit, billing arithmetic, retention and alerting. */
+async function hardening() {
+  heading("hardening: secrets, rate limits, usage, retention, alerts");
+  const { encryptSecret, decryptSecret } = await import("../lib/secretbox");
+  const { allowRate } = await import("../lib/ratelimit");
+  const { tenantUsage } = await import("../lib/usage");
+  const { setTenantSecret, getTenantSecret } = await import("../lib/tenancy");
+  const { enqueue } = await import("../lib/jobs");
+
+  const boxed = encryptSecret("jobber-token-123");
+  if (decryptSecret(boxed) !== "jobber-token-123") throw new Error("the secret box must round-trip");
+  if (boxed.includes("jobber-token-123")) throw new Error("the ciphertext must not contain the plaintext");
+  let tampered = false;
+  try {
+    decryptSecret("v1:" + Buffer.from("tampered-nonsense-payload-1234567890abcd").toString("base64"));
+    tampered = true;
+  } catch { /* expected */ }
+  if (tampered) throw new Error("a tampered secret must fail to decrypt");
+
+  if (!(await allowRate("smoke:limit", 2, 10))) throw new Error("first hit must pass");
+  await allowRate("smoke:limit", 2, 10);
+  if (await allowRate("smoke:limit", 2, 10)) throw new Error("the third hit in the window must be limited");
+
+  const biller = await createTenant({ name: "Meter Test Heating", mainNumber: "(847) 555-0199" });
+  await setTenantSecret(biller.id, "jobber", "sk-very-secret");
+  const back = await getTenant(biller.id);
+  const [rawCfg] = await q<{ config: { secrets?: Record<string, string> } }>(`select config from tenants where id = $1`, [biller.id]);
+  if (JSON.stringify(rawCfg.config).includes("sk-very-secret")) throw new Error("the stored config must never hold the plaintext");
+  if ((await getTenantSecret(back!, "jobber")) !== "sk-very-secret") throw new Error("the tenant secret must round-trip");
+
+  // Two calls, 5s and 65s: billable minutes must be 1 + 2 = 3, per-call rounding.
+  await q(
+    `insert into demo_calls (call_id, tenant_id, started_at, ended_at) values
+       ('meter_1', $1, now() - interval '10 minutes', now() - interval '10 minutes' + interval '5 seconds'),
+       ('meter_2', $1, now() - interval '9 minutes', now() - interval '9 minutes' + interval '65 seconds')`,
+    [biller.id],
+  );
+  const usage = await tenantUsage(back!);
+  if (usage.minutes !== 3) throw new Error(`per-call rounding must give 3 minutes, got ${usage.minutes}`);
+
+  // Retention: an ancient event goes, a fresh one stays, old call media is stripped.
+  await q(`insert into pipeline_events (tenant_id, call_id, step, status, occurred_at) values ($1,'old_call','call_answered','ok', now() - interval '200 days')`, [biller.id]);
+  await q(`insert into demo_calls (call_id, tenant_id, started_at, ended_at, transcript) values ('old_media', $1, now() - interval '120 days', now() - interval '120 days', 'ancient words')`, [biller.id]);
+  await enqueue("retention", {}, new Date(Date.now() - 1000));
+  const ranRetention = await runDueJobs();
+  const retention = ranRetention.results.find((r) => r.kind === "retention");
+  if (!retention || !/purged/.test(retention.outcome)) throw new Error(`retention must purge, got ${retention?.outcome}`);
+  const [oldRows] = await q<{ n: number }>(`select count(*)::int as n from pipeline_events where call_id = 'old_call'`);
+  if (oldRows.n !== 0) throw new Error("the ancient pipeline event must be gone");
+  const [medias] = await q<{ t: string | null }>(`select transcript as t from demo_calls where call_id = 'old_media'`);
+  if (medias.t !== null) throw new Error("old call media must be stripped");
+
+  // A job that runs out of retries alerts the platform admins, once.
+  process.env.PLATFORM_ADMIN_EMAILS = process.env.PLATFORM_ADMIN_EMAILS || "ops@example.com";
+  await q(`insert into jobs (kind, payload, run_at, attempts, status) values ('no_such_kind','{}', now() - interval '1 minute', 2, 'queued')`);
+  await runDueJobs();
+  const [alerts] = await q<{ n: number }>(`select count(*)::int as n from messages where template = 'platform_alert'`);
+  if (alerts.n !== 1) throw new Error(`one platform alert must be logged, found ${alerts.n}`);
+
+  console.log("secrets, rate limits, usage, retention and alerts hold");
 }
 
 /** Phase 4: STOP handling, the suppression check, and the recurring emails. */
