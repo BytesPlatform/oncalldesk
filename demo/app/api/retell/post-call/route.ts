@@ -1,7 +1,7 @@
 /** Retell's call lifecycle webhook. Closes the call and records the outcome. */
 
 import { NextRequest, NextResponse } from "next/server";
-import { closeCall, logCallEvent, logPipeline, touchCall } from "@/lib/ops";
+import { closeCall, logCallEvent, logPipeline, saveCallMedia, touchCall } from "@/lib/ops";
 import { signatureRequired, verifyRetellSignature } from "@/lib/retell";
 import { tenantByAgentId, withTenant } from "@/lib/tenancy";
 import { cfg, isAfterHoursFor } from "@/lib/tenant-config";
@@ -19,6 +19,8 @@ export async function POST(request: NextRequest) {
       agent_id?: string;
       from_number?: string;
       disconnection_reason?: string;
+      transcript?: string;
+      recording_url?: string;
       call_analysis?: {
         call_summary?: string;
         user_sentiment?: string;
@@ -62,6 +64,7 @@ export async function POST(request: NextRequest) {
         outcome: call.disconnection_reason ?? "ok",
       });
       await closeCall(call.call_id, call.disconnection_reason ?? "ended");
+      await saveCallMedia(call.call_id, { transcript: call.transcript, recordingUrl: call.recording_url });
       return NextResponse.json({ received: true });
     }
 
@@ -71,6 +74,7 @@ export async function POST(request: NextRequest) {
       const outcome = String(custom.outcome ?? "completed");
 
       await closeCall(call.call_id, outcome, analysis.call_summary);
+      await saveCallMedia(call.call_id, { transcript: call.transcript, recordingUrl: call.recording_url });
       await logCallEvent({
         callId: call.call_id,
         action: "call_analyzed",

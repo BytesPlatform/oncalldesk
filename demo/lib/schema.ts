@@ -194,7 +194,9 @@ create table if not exists demo_calls (
   after_hours boolean not null default false,
   booked      boolean not null default false,
   ticket_value numeric(10,2),
-  summary     text
+  summary     text,
+  transcript  text,
+  recording_url text
 );
 
 -- ---------- platform: prospects, email, jobs ----------
@@ -273,6 +275,8 @@ alter table pipeline_events add column if not exists tenant_id text not null def
 alter table outbound_messages add column if not exists tenant_id text not null default 'demo';
 alter table callback_queue add column if not exists tenant_id text not null default 'demo';
 alter table demo_calls add column if not exists tenant_id text not null default 'demo';
+alter table demo_calls add column if not exists transcript text;
+alter table demo_calls add column if not exists recording_url text;
 create index if not exists demo_clients_tenant on demo_clients (tenant_id);
 create index if not exists demo_visits_tenant on demo_visits (tenant_id, starts_at);
 create index if not exists demo_jobs_tenant on demo_jobs (tenant_id);

@@ -99,3 +99,12 @@ export async function closeCall(callId: string, outcome: string, summary?: strin
     [callId, outcome, summary ?? null, tenantId()],
   );
 }
+
+/** The words and the audio, from Retell's post-call webhook. */
+export async function saveCallMedia(callId: string, media: { transcript?: string | null; recordingUrl?: string | null }): Promise<void> {
+  await q(
+    `update demo_calls set transcript = coalesce($2, transcript), recording_url = coalesce($3, recording_url)
+     where call_id = $1 and tenant_id = $4`,
+    [callId, media.transcript ?? null, media.recordingUrl ?? null, tenantId()],
+  );
+}
