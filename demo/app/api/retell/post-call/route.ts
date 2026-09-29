@@ -1,6 +1,7 @@
 /** Retell's call lifecycle webhook. Closes the call and records the outcome. */
 
 import { NextRequest, NextResponse } from "next/server";
+import { notifyOwners } from "@/lib/notify";
 import { closeCall, logCallEvent, logPipeline, saveCallMedia, touchCall } from "@/lib/ops";
 import { signatureRequired, verifyRetellSignature } from "@/lib/retell";
 import { tenantByAgentId, withTenant } from "@/lib/tenancy";
@@ -65,6 +66,20 @@ export async function POST(request: NextRequest) {
       });
       await closeCall(call.call_id, call.disconnection_reason ?? "ended");
       await saveCallMedia(call.call_id, { transcript: call.transcript, recordingUrl: call.recording_url });
+      // A call the line could not complete is worth telling the owner about.
+      if (/error|failed/i.test(call.disconnection_reason ?? "") && tenant.id !== "demo") {
+        await notifyOwners(tenant, {
+          template: "owner_failed_call",
+          subject: "A call could not be completed",
+          title: "A call did not go through",
+          lines: [
+            `A ${call.from_number ? `call from ${call.from_number}` : "call"} ended with "${(call.disconnection_reason ?? "").replace(/_/g, " ")}".`,
+            "The caller may try again; if this repeats, reply to this email and we will look at the line together.",
+          ],
+          ctaLabel: "See the call",
+          ctaPath: `/app/calls?call=${encodeURIComponent(call.call_id)}`,
+        });
+      }
       return NextResponse.json({ received: true });
     }
 

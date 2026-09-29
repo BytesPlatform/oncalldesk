@@ -46,6 +46,55 @@ async function main() {
   await isolation();
   await landingSite();
   await onboardingConfig();
+  await automation();
+}
+
+/** Phase 4: STOP handling, the suppression check, and the recurring emails. */
+async function automation() {
+  heading("automation: consent, suppression and the scheduled emails");
+  const { stopKeyword, recordSmsConsent, sendMessage } = await import("../lib/sms");
+  const { enqueue } = await import("../lib/jobs");
+  const { nextLocalTime } = await import("../lib/automation");
+
+  if (stopKeyword("STOP") !== "stop" || stopKeyword("  unsubscribe please") !== "stop") throw new Error("STOP keywords must be recognised");
+  if (stopKeyword("Start") !== "start" || stopKeyword("HELP") !== "help") throw new Error("START and HELP must be recognised");
+  if (stopKeyword("can you stop by tomorrow") !== null) throw new Error("STOP must only match as the first word");
+
+  const owner = await createTenant({ name: "Borealis Air", mainNumber: "(773) 555-0100" });
+  await addMembership({ tenantId: owner.id, email: "boss@borealis.example", name: "Robin Vale", role: "owner" });
+  await q(`update tenants set status = 'active', config = config || $2::jsonb where id = $1`, [
+    owner.id,
+    JSON.stringify({ onboarding: { step: 8, startedAt: new Date().toISOString(), completedAt: new Date(Date.now() - 8 * 86_400_000).toISOString(), checklist: {}, testCallId: null } }),
+  ]);
+
+  await withTenant(owner, async () => {
+    await recordSmsConsent({ phone: "+17735550111", kind: "sms_opt_out", source: "inbound_sms" });
+    const blocked = await sendMessage({ to: "(773) 555-0111", label: "caller", body: "should never go" });
+    if (blocked.status !== "suppressed") throw new Error(`a STOP number must be suppressed, got ${blocked.status}`);
+    await recordSmsConsent({ phone: "+17735550111", kind: "sms_opt_in", source: "inbound_sms" });
+    const allowed = await sendMessage({ to: "(773) 555-0111", label: "caller", body: "welcome back" });
+    if (allowed.status !== "queued") throw new Error(`after START the message must queue, got ${allowed.status}`);
+  });
+
+  const soon = nextLocalTime(owner.timezone, 18);
+  if (soon.getTime() <= Date.now()) throw new Error("the next summary time must be in the future");
+
+  // A silent week on an active tenant: the daily job skips the summary and sends the nudge.
+  await enqueue("daily_summary", { tenant_id: owner.id }, new Date(Date.now() - 1000), { tenantId: owner.id });
+  const ran = await runDueJobs();
+  const daily = ran.results.find((r) => r.kind === "daily_summary");
+  if (!daily || !/re-engagement sent/.test(daily.outcome)) throw new Error(`expected the re-engagement nudge, got ${daily?.outcome}`);
+  const [mail] = await q<{ n: number }>(`select count(*)::int as n from messages where tenant_id = $1 and template = 're_engagement'`, [owner.id]);
+  if (mail.n < 1) throw new Error("the re-engagement email must be logged in messages");
+  const [next] = await q<{ n: number }>(`select count(*)::int as n from jobs where tenant_id = $1 and kind = 'daily_summary' and status = 'queued'`, [owner.id]);
+  if (next.n !== 1) throw new Error("the daily job must reschedule itself exactly once");
+
+  await enqueue("weekly_report", { tenant_id: owner.id }, new Date(Date.now() - 1000), { tenantId: owner.id });
+  const ran2 = await runDueJobs();
+  const weekly = ran2.results.find((r) => r.kind === "weekly_report");
+  if (!weekly || !/sent/.test(weekly.outcome)) throw new Error(`expected the weekly report to send, got ${weekly?.outcome}`);
+
+  console.log("consent, suppression and the scheduled emails hold");
 }
 
 /** The tenant configuration: defaults, merge, hours in a time zone, and what the agent is rendered from. */

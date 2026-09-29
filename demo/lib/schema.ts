@@ -182,6 +182,29 @@ create table if not exists callback_queue (
 );
 create index if not exists callback_queue_created_at on callback_queue (created_at);
 
+-- Texting consent, recorded per phone (hashed): opt-ins from calls and the
+-- lead form, opt-outs from STOP replies. suppression_list is the live
+-- do-not-text set the sender checks before every message.
+create table if not exists consent_events (
+  id          bigserial primary key,
+  tenant_id   text not null default 'demo',
+  occurred_at timestamptz not null default now(),
+  call_id     text,
+  phone_hash  text not null,
+  phone_last4 text,
+  kind        text not null,                         -- sms_opt_in, sms_opt_out
+  source      text                                   -- call, inbound_sms, form
+);
+create index if not exists consent_events_tenant on consent_events (tenant_id, id);
+
+create table if not exists suppression_list (
+  tenant_id  text not null default 'demo',
+  phone_hash text not null,
+  added_at   timestamptz not null default now(),
+  source     text,
+  primary key (tenant_id, phone_hash)
+);
+
 create table if not exists demo_calls (
   call_id     text primary key,
   tenant_id        text not null default 'demo',
@@ -292,6 +315,8 @@ export const TENANT_TABLES = [
   "pipeline_events",
   "call_events",
   "outbound_messages",
+  "consent_events",
+  "suppression_list",
   "callback_queue",
   "demo_calls",
   "demo_notes",

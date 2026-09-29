@@ -31,8 +31,10 @@ const onCallTechnician = () => onCallTechnicianFor(cfg());
 const technicianById = (id: string) => technicianByIdFor(cfg(), id);
 import { q } from "./db";
 import { decodeSlot, jobber, speakWindow } from "./jobber";
+import { enqueue } from "./jobs";
+import { notifyOwners } from "./notify";
 import { logCallEvent, logPipeline, markBooked, setCallUrgency, touchCall } from "./ops";
-import { sendMessage } from "./sms";
+import { recordSmsConsent, sendMessage } from "./sms";
 import { tenant, tenantId } from "./tenancy";
 import type { ToolRequest } from "./retell";
 
@@ -270,6 +272,33 @@ async function bookVisit(req: ToolRequest): Promise<ToolResponse> {
     });
     await markBooked(req.call.call_id, jobTypeId);
 
+    // The owner hears about it, and the caller gets a nudge the day before.
+    const t = tenant();
+    const dayFmt = new Intl.DateTimeFormat("en-US", { weekday: "long", hour: "numeric", minute: "2-digit", timeZone: t.timezone });
+    const hourFmt = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: t.timezone });
+    const windowLabel = `${dayFmt.format(slot.start)} to ${hourFmt.format(end)}`;
+    await notifyOwners(t, {
+      template: "owner_booked",
+      subject: `Booked: ${type?.name ?? "a job"}, ${windowLabel}`,
+      title: "The assistant booked a job",
+      lines: [
+        `${type?.name ?? "A job"} is on the schedule for ${windowLabel}.`,
+        symptom ? `The caller said: "${symptom}"` : "",
+        `Urgency: ${urgency}.`,
+      ].filter(Boolean),
+      ctaLabel: "See the schedule",
+      ctaPath: "/app/schedule",
+    });
+    const reminderAt = new Date(slot.start.getTime() - 24 * 3_600_000);
+    if (reminderAt.getTime() > Date.now() + 30 * 60_000) {
+      await enqueue(
+        "visit_reminder",
+        { tenant_id: t.id, client_id: clientId, starts_at: slot.start.toISOString(), title: type?.name ?? "your visit", window: windowLabel },
+        reminderAt,
+        { tenantId: t.id },
+      );
+    }
+
     return { status: "booked", say: result.say, job_id: result.jobId };
   } catch (err) {
     // A booking that cannot land becomes a callback rather than a dead end.
@@ -317,6 +346,8 @@ async function notifyOnCall(req: ToolRequest): Promise<ToolResponse> {
   }
 
   if (callerPhone) {
+    // The booking call is the consent basis for the confirmation text.
+    await recordSmsConsent({ phone: callerPhone, kind: "sms_opt_in", source: "call", callId: req.call.call_id });
     await sendMessage({
       callId: req.call.call_id,
       to: callerPhone,
@@ -419,6 +450,18 @@ async function takeMessage(req: ToolRequest): Promise<ToolResponse> {
     action: "message_taken",
     outcome: reason,
     detail: { has_number: Boolean(phone) },
+  });
+
+  await notifyOwners(tenant(), {
+    template: "owner_message",
+    subject: `A caller left a message: ${reason.replace(/_/g, " ")}`,
+    title: "A caller needs a call back",
+    lines: [
+      `${name || "A caller"}${phone && phone !== "(not given)" ? `, ${phone}` : ""} asked for a callback.`,
+      note ? `They said: "${note}"` : `Reason: ${reason.replace(/_/g, " ")}.`,
+    ],
+    ctaLabel: "Open the Needs-you list",
+    ctaPath: "/app",
   });
 
   return {
