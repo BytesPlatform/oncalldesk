@@ -91,20 +91,20 @@ export async function saveServicesAction(form: FormData): Promise<void> {
   const c = configOf(ctx.tenant);
 
   const services: JobType[] = [];
-  for (const line of text(form, "services").split("\n")) {
+  for (const line of text(form, "services").split(/\r?\n/)) {
     const [name, minutes, urgency, skill, ticket] = line.split("|").map((s) => s.trim());
     if (!name) continue;
     const u = URGENCIES.includes(urgency as Urgency) ? (urgency as Urgency) : "routine";
     services.push({ id: slug(name), name, minutes: Math.max(15, Number(minutes) || 60), urgency: u, skill: (skill || "any").toLowerCase(), typicalTicket: Number(ticket) || 0 });
   }
   const serviceArea: { zip: string; town: string }[] = [];
-  for (const line of text(form, "service_area").split("\n")) {
+  for (const line of text(form, "service_area").split(/\r?\n/)) {
     const m = line.trim().match(/^(\d{5})\s*[,;:]?\s*(.*)$/);
     if (m) serviceArea.push({ zip: m[1], town: m[2].trim() || m[1] });
   }
   const technicians: Technician[] = [];
   let i = 0;
-  for (const line of text(form, "technicians").split("\n")) {
+  for (const line of text(form, "technicians").split(/\r?\n/)) {
     const [name, skills, days] = line.split("|").map((s) => s.trim());
     if (!name) continue;
     const onCallDays = (days || "")
@@ -156,6 +156,8 @@ export async function publishAgentAction(form: FormData): Promise<void> {
   try {
     const r = await provisionAgent(ctx.tenant.id);
     const mode = text(form, "mode");
+    // A published assistant is what the test call needs, so publishing unlocks it.
+    if (mode !== "settings") await saveConfig(ctx.tenant.id, {}, 6);
     redirect(mode === "settings" ? `/app/settings?ok=${encodeURIComponent(`Assistant published, version ${r.version ?? "1"}.`)}` : `/app/setup/${step}?ok=${encodeURIComponent("Assistant published.")}`);
   } catch (err) {
     if ((err as { digest?: string })?.digest?.startsWith("NEXT_REDIRECT")) throw err;
