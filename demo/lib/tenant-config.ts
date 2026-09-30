@@ -36,10 +36,6 @@ export const ONBOARDING_STEPS = [
   { id: "business", title: "Business basics", blurb: "Address, the number the assistant gives out, hours and the after-hours policy." },
   { id: "services", title: "What you do", blurb: "Services and how urgent each one is, the area you cover, your technicians and the on-call rota." },
   { id: "behaviour", title: "How it should behave", blurb: "The greeting, the tone, what it says when it cannot help, and where to transfer." },
-  { id: "software", title: "Calendar and software", blurb: "The built-in schedule, or the software you already run." },
-  { id: "phone", title: "Phone number", blurb: "A new number in your area code, or forward the one you have." },
-  { id: "test", title: "Test call", blurb: "Call your assistant from the browser and tick the checklist." },
-  { id: "live", title: "Go live", blurb: "The summary, what to tell staff, and the forwarding step." },
 ] as const;
 
 export type StepId = (typeof ONBOARDING_STEPS)[number]["id"];
@@ -104,7 +100,13 @@ export interface TenantConfig {
   };
 }
 
-export function defaultConfig(): TenantConfig {
+/**
+ * The starting point for a new workspace. The business name is woven into
+ * the greeting, because the first sentence a caller hears is the most
+ * noticeable thing in a demo and it must never name someone else.
+ */
+export function defaultConfig(businessName: string = COMPANY.name): TenantConfig {
+  const name = businessName;
   const weekday: DayHours = { open: pad(BUSINESS_HOURS.weekdayOpenHour), close: pad(BUSINESS_HOURS.weekdayCloseHour) };
   return {
     onboarding: { step: 0, startedAt: null, completedAt: null, checklist: {}, testCallId: null },
@@ -129,7 +131,7 @@ export function defaultConfig(): TenantConfig {
     serviceArea: SERVICE_AREA.map((s) => ({ ...s })),
     technicians: TECHNICIANS.map((t) => ({ ...t, skills: [...t.skills], onCallDays: [...t.onCallDays] })),
     behaviour: {
-      greeting: `Thanks for calling ${COMPANY.name}, this is the service line. This call is recorded. What's going on with your system?`,
+      greeting: `Thanks for calling ${name}, this is the service line. This call is recorded. What's going on with your system?`,
       tone: "calm",
       cannotHelp: "I can't help with that one, but I'll make sure the office gets your message and calls you back.",
       transferNumber: "",
@@ -161,7 +163,7 @@ export function mergeConfig(base: TenantConfig, patch: unknown): TenantConfig {
 }
 
 export function configOf(t: Tenant): TenantConfig {
-  const c = mergeConfig(defaultConfig(), t.config);
+  const c = mergeConfig(defaultConfig(t.name), t.config);
   // The tenant row is the source of truth for the two fields the console also edits.
   if (t.retell_agent_id && !c.agent.agentId) c.agent.agentId = t.retell_agent_id;
   if (t.phone_number && !c.phone.number) c.phone.number = t.phone_number;

@@ -5,19 +5,14 @@
  * shows at once and saving re-publishes the assistant.
  */
 import { PRODUCT } from "@/lib/product";
-import { forwardingInstructions, needsRepublish } from "@/lib/provision";
+import { needsRepublish } from "@/lib/provision";
 import type { Tenant } from "@/lib/tenancy";
-import { DAY_KEYS, DAY_NAMES, configOf, readiness, type DayKey } from "@/lib/tenant-config";
+import { DAY_KEYS, DAY_NAMES, configOf, type DayKey } from "@/lib/tenant-config";
 import {
-  buyNumberAction,
-  forwardNumberAction,
-  publishAgentAction,
-  releaseNumberAction,
   saveAccountAction,
   saveBehaviourAction,
   saveBusinessAction,
   saveServicesAction,
-  saveSoftwareAction,
 } from "./actions";
 
 export type Mode = "setup" | "settings";
@@ -206,192 +201,11 @@ export function BehaviourForm({ tenant, mode }: { tenant: Tenant; mode: Mode }) 
   );
 }
 
-export function SoftwareForm({ tenant, mode }: { tenant: Tenant; mode: Mode }) {
-  const c = configOf(tenant);
-  return (
-    <form action={saveSoftwareAction} className="admin-form">
-      <input type="hidden" name="mode" value={mode} />
-      <label className="admin-field">
-        <span>Calendar</span>
-        <select name="calendar" defaultValue={c.software.calendar}>
-          <option value="builtin">The built-in schedule (works today)</option>
-          <option value="google">Google Calendar (our team connects it with you)</option>
-          <option value="microsoft">Microsoft 365 (our team connects it with you)</option>
-        </select>
-      </label>
-      <label className="admin-field">
-        <span>Field service software</span>
-        <select name="field_software" defaultValue={c.software.fieldSoftware}>
-          <option value="none">None, use the built-in schedule</option>
-          <option value="jobber">Jobber (our team connects it with you)</option>
-          <option value="housecall">Housecall Pro (on request)</option>
-          <option value="servicetitan">ServiceTitan (on request)</option>
-        </select>
-      </label>
-      <label className="admin-field admin-field-wide">
-        <span>Anything we should know about your setup</span>
-        <textarea name="note" rows={2} defaultValue={c.software.note} placeholder="We use Jobber for invoicing but the schedule lives on a whiteboard..." />
-      </label>
-      <p className="admin-help admin-field-wide">
-        Everything works on the built-in schedule from day one. Choosing a connection here tells our team to set it up with you; nothing changes until they do.
-      </p>
-      <Submit mode={mode} />
-    </form>
-  );
-}
 
-export function PhoneForm({ tenant, mode }: { tenant: Tenant; mode: Mode }) {
-  const c = configOf(tenant);
-  const ready = readiness(c);
-  const published = Boolean(c.agent.agentId);
-  const stale = published && needsRepublish(tenant);
-  return (
-    <div className="setup-stack">
-      <section className="admin-section">
-        <h2 className="admin-title-sm">1. Publish the assistant</h2>
-        {ready.ok ? (
-          <p className="admin-help">
-            {published
-              ? stale
-                ? "Your configuration changed since the assistant was last published. Publish again so the next call uses it."
-                : `Published${c.agent.publishedAt ? ` ${new Date(c.agent.publishedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : ""}. It answers with your greeting, hours, service area, services and team.`
-              : "This turns everything you entered into your assistant. It takes a few seconds."}
-          </p>
-        ) : (
-          <p className="admin-warn">Still missing: {ready.missing.join(", ")}. Go back and fill those in first.</p>
-        )}
-        <form action={publishAgentAction}>
-          <input type="hidden" name="mode" value={mode} />
-          <input type="hidden" name="step" value="phone" />
-          <div className="admin-actions">
-            <button className={`btn ${published && !stale ? "btn-quiet" : "btn-cta"}`} type="submit" disabled={!ready.ok}>
-              {published ? "Publish again" : "Publish the assistant"}
-            </button>
-          </div>
-        </form>
-      </section>
 
-      <section className="admin-section">
-        <h2 className="admin-title-sm">2. A number for it to answer</h2>
-        {c.phone.number ? (
-          <>
-            <p className="admin-help">
-              Your assistant answers on <strong>{c.phone.number}</strong>. Call it from your mobile to hear it.
-            </p>
-            {mode === "settings" ? (
-              <form action={releaseNumberAction}>
-                <div className="admin-actions">
-                  <button className="btn btn-quiet" type="submit">
-                    Release this number
-                  </button>
-                </div>
-              </form>
-            ) : null}
-          </>
-        ) : (
-          <>
-            <p className="admin-help">
-              We buy a local number in your area code and bind it to your assistant. About $2 a month, included in your plan. You can keep your existing number and forward it to this one; the carrier steps are below.
-            </p>
-            <form action={buyNumberAction} className="admin-form admin-form-inline">
-              <label className="admin-field">
-                <span>Area code</span>
-                <input name="area_code" defaultValue={c.phone.areaCode || (c.basics.callbackNumber.replace(/\D/g, "").replace(/^1/, "").slice(0, 3))} maxLength={3} placeholder="847" />
-              </label>
-              <div className="admin-actions">
-                <button className="btn btn-cta" type="submit" disabled={!published}>
-                  Buy the number
-                </button>
-              </div>
-            </form>
-            {!published ? <p className="admin-sub">Publish the assistant first.</p> : null}
-          </>
-        )}
-      </section>
 
-      <section className="admin-section">
-        <h2 className="admin-title-sm">3. Keeping your existing number</h2>
-        <p className="admin-help">
-          Most businesses keep their number and forward it: always, after hours only, or when nobody picks up. Tell us the number and the carrier and we show the exact steps.
-        </p>
-        <form action={forwardNumberAction} className="admin-form admin-form-inline">
-          <label className="admin-field">
-            <span>Your current business number</span>
-            <input name="existing_number" defaultValue={c.phone.existingNumber} placeholder="(847) 555-0100" />
-          </label>
-          <label className="admin-field">
-            <span>Carrier or phone system</span>
-            <input name="carrier" defaultValue={c.phone.carrier} placeholder="AT&T, Verizon, Comcast, RingCentral..." />
-          </label>
-          <div className="admin-actions">
-            <button className="btn btn-quiet" type="submit">
-              Show the steps
-            </button>
-          </div>
-        </form>
-        {c.phone.mode === "forward" && c.phone.number ? (
-          <ol className="setup-steps-list">
-            {forwardingInstructions(c.phone.carrier, c.phone.number).map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ol>
-        ) : c.phone.mode === "forward" ? (
-          <p className="admin-sub">Buy the number above first; the forwarding steps need it.</p>
-        ) : null}
-        <p className="admin-sub">Text messages to your customers come from a separate number and are switched on by our team once carrier registration clears. Consent is already being collected on every call.</p>
-      </section>
-
-      {mode === "setup" ? (
-        <div className="admin-actions">
-          <a className={`btn ${c.phone.number || c.phone.mode === "forward" ? "btn-cta" : "btn-quiet"}`} href="/app/setup/test">
-            Continue to the test call
-          </a>
-        </div>
-      ) : null}
-      <p className="admin-sub">{PRODUCT.name} numbers are provided through Retell.</p>
-    </div>
-  );
-}
 
 /** The go-live summary, one row per thing the assistant now knows. */
-export function SummaryRows({ tenant, c }: { tenant: Tenant; c: ReturnType<typeof configOf> }) {
-  return (
-    <>
-      <tr>
-        <td>Business</td>
-        <td>{tenant.name}, {c.basics.timezone.replace("America/", "").replace(/_/g, " ")}</td>
-      </tr>
-      <tr>
-        <td>Number it gives out</td>
-        <td>{c.basics.callbackNumber}</td>
-      </tr>
-      <tr>
-        <td>After hours</td>
-        <td>{c.basics.afterHoursPolicy === "book" ? "Books emergencies and pages the on-call technician" : "Takes a message for the morning"}</td>
-      </tr>
-      <tr>
-        <td>Service area</td>
-        <td>{[...new Set(c.serviceArea.map((s) => s.town))].join(", ")}</td>
-      </tr>
-      <tr>
-        <td>Services</td>
-        <td>{c.services.map((s) => s.name).join(", ")}</td>
-      </tr>
-      <tr>
-        <td>Team</td>
-        <td>{c.technicians.map((t) => t.name).join(", ")}</td>
-      </tr>
-      <tr>
-        <td>Transfer to a person</td>
-        <td>{c.behaviour.transferNumber || "not set; the assistant takes a message instead"}</td>
-      </tr>
-    </>
-  );
-}
 
-export const STAFF_NOTES = [
-  "Calls the assistant books show on the board marked \"by the assistant\", with the caller's own words as the note.",
-  "When it transfers, it says one line about the caller first, so nobody has to ask twice.",
-  "Messages it takes are in the callback list; someone should work that list each morning.",
-  "If it gets something wrong, open the call, find the step, and change the rule in Settings. It follows the new rule on the next call.",
-];
+
+

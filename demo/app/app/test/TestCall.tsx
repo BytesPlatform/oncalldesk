@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * Step 7: call your own assistant from the browser. The checklist ticks
- * itself from the pipeline steps the call produces, and the ticks are saved
- * so the go-live page can show them.
+ * Call your own assistant from the browser. The checklist ticks itself from
+ * the pipeline steps the call produces, so a prospect can watch the thing
+ * work rather than take our word for it.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
