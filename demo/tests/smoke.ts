@@ -114,7 +114,7 @@ async function hardening() {
 
 /** Phase 4: STOP handling, the suppression check, and the recurring emails. */
 async function automation() {
-  heading("automation: consent, suppression and the scheduled emails");
+  heading("automation: consent, suppression and trial expiry");
   const { stopKeyword, recordSmsConsent, sendMessage } = await import("../lib/sms");
   const { enqueue } = await import("../lib/jobs");
   const { nextLocalTime } = await import("../lib/automation");
@@ -139,25 +139,29 @@ async function automation() {
     if (allowed.status !== "queued") throw new Error(`after START the message must queue, got ${allowed.status}`);
   });
 
-  const soon = nextLocalTime(owner.timezone, 18);
-  if (soon.getTime() <= Date.now()) throw new Error("the next summary time must be in the future");
+  const soon = nextLocalTime(owner.timezone, 4);
+  if (soon.getTime() <= Date.now()) throw new Error("the next retention pass must be in the future");
 
-  // A silent week on an active tenant: the daily job skips the summary and sends the nudge.
-  await enqueue("daily_summary", { tenant_id: owner.id }, new Date(Date.now() - 1000), { tenantId: owner.id });
-  const ran = await runDueJobs();
-  const daily = ran.results.find((r) => r.kind === "daily_summary");
-  if (!daily || !/re-engagement sent/.test(daily.outcome)) throw new Error(`expected the re-engagement nudge, got ${daily?.outcome}`);
-  const [mail] = await q<{ n: number }>(`select count(*)::int as n from messages where tenant_id = $1 and template = 're_engagement'`, [owner.id]);
-  if (mail.n < 1) throw new Error("the re-engagement email must be logged in messages");
-  const [next] = await q<{ n: number }>(`select count(*)::int as n from jobs where tenant_id = $1 and kind = 'daily_summary' and status = 'queued'`, [owner.id]);
-  if (next.n !== 1) throw new Error("the daily job must reschedule itself exactly once");
+  // A trial ends by itself, and can be given more time.
+  const { trialState, extendTrial, createTenant: mkT } = await import("../lib/tenancy");
+  const short = await mkT({ name: "Two Day Trial", trialDays: 2 });
+  const fresh = trialState(short);
+  if (!fresh.limited || fresh.expired || fresh.daysLeft !== 2) throw new Error(`a two day trial must read as two days left, got ${JSON.stringify(fresh)}`);
+  await q(`update tenants set trial_ends_at = now() - interval '1 hour' where id = $1`, [short.id]);
+  const { getTenant: getT } = await import("../lib/tenancy");
+  const done = trialState((await getT(short.id))!);
+  if (!done.expired) throw new Error("a trial past its end date must read as expired");
+  await extendTrial(short.id, 3);
+  const again = trialState((await getT(short.id))!);
+  if (again.expired || again.daysLeft !== 3) throw new Error(`extending must reopen the trial, got ${JSON.stringify(again)}`);
+  const openEnded = await mkT({ name: "No Limit Workspace" });
+  if (trialState(openEnded).limited) throw new Error("a tenant with no trial days must never expire");
 
-  await enqueue("weekly_report", { tenant_id: owner.id }, new Date(Date.now() - 1000), { tenantId: owner.id });
-  const ran2 = await runDueJobs();
-  const weekly = ran2.results.find((r) => r.kind === "weekly_report");
-  if (!weekly || !/sent/.test(weekly.outcome)) throw new Error(`expected the weekly report to send, got ${weekly?.outcome}`);
+  // Nothing schedules a summary, a report or a nudge any more.
+  const [scheduled] = await q<{ n: number }>(`select count(*)::int as n from jobs where kind in ('daily_summary','weekly_report','onboarding_nudge','tenant_lifecycle')`);
+  if (scheduled.n !== 0) throw new Error(`no trial email jobs may be scheduled, found ${scheduled.n}`);
 
-  console.log("consent, suppression and the scheduled emails hold");
+  console.log("consent, suppression, trial expiry and the quiet mailbox hold");
 }
 
 /** The tenant configuration: defaults, merge, hours in a time zone, and what the agent is rendered from. */
